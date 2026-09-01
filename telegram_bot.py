@@ -28,6 +28,7 @@ NCBI_EMAIL = os.getenv("NCBI_EMAIL")
 MAX_TELEGRAM_MESSAGE = 3900
 PUBMED_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+CLINICALTRIALS_SEARCH_URL = "https://clinicaltrials.gov/api/v2/studies"
 
 KNOWN_GUIDELINE_COMPARISONS = [
     {
@@ -166,6 +167,28 @@ GUIDELINE_CARD_PROMPT = dedent(
     """
 ).strip()
 
+TRIAL_CARD_PROMPT = dedent(
+    """
+    Strict clinical trial output rules:
+    - Your first visible line must be exactly: Bottom line
+    - Do not start with any other title.
+    - Use this exact heading order:
+      Bottom line
+      Trial Card
+      What was retrieved
+      Trial status snapshot
+      What is being tested
+      Who it may apply to
+      What this does NOT prove
+      Risks / caveats
+      Practical next step
+    - Include NCT ID and ClinicalTrials.gov URL for each central trial when available.
+    - Clearly distinguish recruiting, active, completed, terminated, and unknown status.
+    - Do not imply that a listed trial proves a treatment works.
+    - Do not encourage enrollment as medical advice; suggest discussing eligibility with a qualified clinician/research site.
+    """
+).strip()
+
 COMPARE_CARD_PROMPT = dedent(
     """
     Strict comparison output rules:
@@ -209,6 +232,9 @@ MODE_PROMPTS = {
     "guideline": BASE_PROMPT
     + "\n\nMode: guideline card. Use retrieved official guideline seed context and PubMed records when present. Summarize one guideline/source, its scope, what it emphasizes, evidence strength, caveats, and patient-facing clinician questions.\n\n"
     + GUIDELINE_CARD_PROMPT,
+    "trial": BASE_PROMPT
+    + "\n\nMode: clinical trial scout. Use retrieved ClinicalTrials.gov study records when present. Summarize trial status, intervention, phase, population, eligibility caveats, and practical next steps. Do not imply efficacy from registration alone.\n\n"
+    + TRIAL_CARD_PROMPT,
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
@@ -229,6 +255,7 @@ START_TEXT = dedent(
     /treatment - PubMed destekli tedavi kanit-risk karti
     /compare - iki kaynak/guideline/iddia karsilastirma
     /guideline - tek guideline/resmi kaynak ozeti
+    /trial - ClinicalTrials.gov klinik calisma aramasi
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -251,10 +278,11 @@ HELP_TEXT = dedent(
     /treatment long-term antibiotics post-treatment Lyme disease syndrome
     /compare IDSA vs ILADS chronic Lyme treatment
     /guideline NICE Lyme disease ongoing symptoms
+    /trial post-treatment Lyme disease syndrome
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
+    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. /trial ClinicalTrials.gov uzerinden klinik calisma arar.
     """
 ).strip()
 
@@ -279,6 +307,7 @@ COMMAND_HINTS = {
     "treatment": "Hangi tedavi veya iddiayi PubMed destekli inceleyeyim? Ornek: long-term antibiotics post-treatment Lyme disease syndrome",
     "compare": "Neyi karsilastirayim? Ornek: IDSA vs ILADS chronic Lyme treatment",
     "guideline": "Hangi guideline/resmi kaynagi ozetleyeyim? Ornek: CDC Lyme treatment veya NICE ongoing symptoms",
+    "trial": "ClinicalTrials.gov'da ne arayayim? Ornek: post-treatment Lyme disease syndrome veya Lyme vaccine",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -498,6 +527,107 @@ async def build_guideline_context(query_or_pmid: str, limit: int = 5) -> tuple[s
     return await build_pubmed_context(query_or_pmid, limit=limit)
 
 
+def trial_value(value, fallback: str = "Not listed") -> str:
+    if value is None:
+        return fallback
+    if isinstance(value, list):
+        cleaned = [str(item) for item in value if item]
+        return ", ".join(cleaned) if cleaned else fallback
+    if isinstance(value, dict):
+        return str(value.get("date") or value.get("count") or fallback)
+    text = str(value).strip()
+    return text if text else fallback
+
+
+async def clinicaltrials_search(query: str, limit: int = 5) -> list[dict]:
+    params = {
+        "format": "json",
+        "query.term": query,
+        "pageSize": str(limit),
+    }
+    async with httpx.AsyncClient(timeout=30) as http:
+        response = await http.get(CLINICALTRIALS_SEARCH_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+    return data.get("studies", [])
+
+
+def format_trial_records(studies: list[dict]) -> str:
+    blocks = []
+    for index, study in enumerate(studies, start=1):
+        protocol = study.get("protocolSection", {})
+        identification = protocol.get("identificationModule", {})
+        status = protocol.get("statusModule", {})
+        description = protocol.get("descriptionModule", {})
+        conditions = protocol.get("conditionsModule", {})
+        design = protocol.get("designModule", {})
+        arms = protocol.get("armsInterventionsModule", {})
+        eligibility = protocol.get("eligibilityModule", {})
+        contacts = protocol.get("contactsLocationsModule", {})
+
+        nct_id = identification.get("nctId", "")
+        title = identification.get("briefTitle") or identification.get("officialTitle") or "Untitled"
+        interventions = []
+        for item in arms.get("interventions", []) or []:
+            name = item.get("name")
+            itype = item.get("type")
+            if name and itype:
+                interventions.append(f"{itype}: {name}")
+            elif name:
+                interventions.append(name)
+
+        locations = []
+        for location in contacts.get("locations", []) or []:
+            facility = location.get("facility")
+            city = location.get("city")
+            country = location.get("country")
+            parts = [part for part in (facility, city, country) if part]
+            if parts:
+                locations.append(", ".join(parts))
+            if len(locations) >= 3:
+                break
+
+        summary = description.get("briefSummary") or "No brief summary listed."
+        if len(summary) > 900:
+            summary = summary[:900].rstrip() + "..."
+
+        criteria = eligibility.get("eligibilityCriteria") or ""
+        if len(criteria) > 700:
+            criteria = criteria[:700].rstrip() + "..."
+
+        blocks.append(
+            dedent(
+                f"""
+                [{index}] NCT ID: {nct_id}
+                Title: {clean_text(title)}
+                URL: https://clinicaltrials.gov/study/{nct_id}
+                Overall status: {trial_value(status.get('overallStatus'))}
+                Start date: {trial_value(status.get('startDateStruct'))}
+                Completion date: {trial_value(status.get('completionDateStruct'))}
+                Study type: {trial_value(design.get('studyType'))}
+                Phase(s): {trial_value(design.get('phases'))}
+                Enrollment: {trial_value((design.get('enrollmentInfo') or {}).get('count'))}
+                Conditions: {trial_value(conditions.get('conditions'))}
+                Interventions: {trial_value(interventions)}
+                Locations sample: {trial_value(locations)}
+                Brief summary: {clean_text(summary)}
+                Eligibility excerpt: {clean_text(criteria)}
+                """
+            ).strip()
+        )
+    return "\n\n".join(blocks)
+
+
+async def build_trial_context(query: str, limit: int = 5) -> tuple[str, list[str]]:
+    studies = await clinicaltrials_search(query, limit=limit)
+    if not studies:
+        return "No ClinicalTrials.gov study records were retrieved.", [f"ClinicalTrials.gov query: {query}"]
+    return format_trial_records(studies), [
+        f"ClinicalTrials.gov query: {query}",
+        f"Retrieved trial record count: {len(studies)}",
+    ]
+
+
 def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = answer.strip()
     normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
@@ -587,6 +717,44 @@ async def ask_with_pubmed(
         await send_chunks(update, fallback)
 
 
+async def ask_with_trials(update: Update, prompt: str, user_text: str) -> None:
+    if not update.message:
+        return
+
+    await update.message.chat.send_action(action=ChatAction.TYPING)
+
+    try:
+        trial_context, search_note = await build_trial_context(user_text)
+        enriched = dedent(
+            f"""
+            User request:
+            {user_text}
+
+            Retrieval notes:
+            {'; '.join(search_note)}
+
+            Retrieved ClinicalTrials.gov context:
+            {trial_context}
+
+            Task:
+            Use the retrieved ClinicalTrials.gov context for the clinical trial scout summary.
+            If records are weakly related, terminated, not recruiting, or missing details, say that clearly.
+            The final answer must start with the exact line "Bottom line" and follow the Trial Card heading order from the system instructions.
+            """
+        ).strip()
+        await ask_model(update, prompt, enriched, evidence_card=True)
+    except Exception:
+        logger.exception("ClinicalTrials.gov retrieval failed")
+        fallback = dedent(
+            """
+            ClinicalTrials.gov kaydini su an cekemedim. Arama cumlesini biraz daraltip tekrar deneyebilirsin.
+
+            Ornek: /trial post-treatment Lyme disease syndrome
+            """
+        ).strip()
+        await send_chunks(update, fallback)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_chunks(update, START_TEXT)
 
@@ -667,6 +835,14 @@ async def guideline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def trial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["trial"])
+        return
+    await ask_with_trials(update, MODE_PROMPTS["trial"], text)
+
+
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "source")
 
@@ -699,6 +875,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("treatment", treatment))
     application.add_handler(CommandHandler("compare", compare))
     application.add_handler(CommandHandler("guideline", guideline))
+    application.add_handler(CommandHandler("trial", trial))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_message))
