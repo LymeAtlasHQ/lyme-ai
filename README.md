@@ -14,13 +14,14 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 - `/paper` for PubMed PMID/search-based article analysis.
 - `/research` for PubMed search plus a short evidence map.
 - `/treatment` for PubMed-backed treatment-claim evidence/risk cards.
+- `/compare` for PubMed-backed side-by-side comparison of guidelines, organizations, studies, or claims.
 - `/source` for source-aware answers.
 - `/calm` for anxiety/panic-safe support.
 - `/safety` for emergency warning boundaries.
 
 ### Evidence Card format
 
-For `/paper`, `/research`, and `/treatment`, the bot tries to retrieve PubMed records and answer with an Evidence Card structure:
+For `/paper`, `/research`, and `/treatment`, the bot tries to retrieve PubMed records and answer with an Evidence Card structure. `/compare` uses a related Comparison Card structure:
 
 - Bottom line
 - Evidence Card
@@ -86,6 +87,7 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 /paper post-treatment Lyme disease syndrome randomized trial
 /research chronic Lyme antibiotic retreatment trial
 /treatment long-term antibiotics post-treatment Lyme disease syndrome
+/compare IDSA vs ILADS chronic Lyme treatment
 /doctorbrief 3 weeks doxycycline, diarrhea and fatigue, no fever
 /calm I am panicking and my heart is racing
 ```
