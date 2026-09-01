@@ -51,6 +51,59 @@ KNOWN_GUIDELINE_COMPARISONS = [
     }
 ]
 
+KNOWN_GUIDELINE_LOOKUPS = [
+    {
+        "name": "IDSA/AAN/ACR 2020 Lyme disease guideline",
+        "match_terms": ("idsa",),
+        "pmids": ["33251700"],
+        "context": dedent(
+            """
+            Official guideline source:
+            - IDSA/AAN/ACR 2020 Lyme disease guideline: https://www.idsociety.org/practice-guideline/lyme-disease/
+            - PubMed record: https://pubmed.ncbi.nlm.nih.gov/33251700/
+            """
+        ).strip(),
+    },
+    {
+        "name": "ILADS 2014 Lyme disease treatment guideline",
+        "match_terms": ("ilads",),
+        "pmids": ["25077519"],
+        "context": dedent(
+            """
+            Official guideline source:
+            - ILADS treatment guidelines: https://www.ilads.org/patient-care/ilads-treatment-guidelines/
+            - PubMed record: https://pubmed.ncbi.nlm.nih.gov/25077519/
+            """
+        ).strip(),
+    },
+    {
+        "name": "CDC Lyme disease treatment and clinical care",
+        "match_terms": ("cdc",),
+        "pmids": ["33251700", "38606630", "32457042"],
+        "context": dedent(
+            """
+            Official public-health sources:
+            - CDC Lyme disease treatment page: https://www.cdc.gov/lyme/treatment/index.html
+            - CDC clinical care page for healthcare providers: https://www.cdc.gov/lyme/hcp/clinical-care/index.html
+            Supporting biomedical records may include the IDSA/AAN/ACR guideline and PTLDS reviews.
+            """
+        ).strip(),
+    },
+    {
+        "name": "NICE NG95 Lyme disease guideline",
+        "match_terms": ("nice",),
+        "pmids": [],
+        "context": dedent(
+            """
+            Official guideline sources:
+            - NICE NG95 Lyme disease guideline: https://www.nice.org.uk/guidance/ng95
+            - NCBI Bookshelf mirror: https://www.ncbi.nlm.nih.gov/books/NBK542111/
+            - NICE evidence review for ongoing symptoms: https://www.ncbi.nlm.nih.gov/books/NBK578130/
+            """
+        ).strip(),
+    },
+]
+
 BASE_PROMPT = dedent(
     """
     You are Lymewire, an evidence-aware Lyme disease and tick-borne illness research assistant.
@@ -89,6 +142,27 @@ EVIDENCE_CARD_PROMPT = dedent(
     - Rank evidence strength as High / Moderate / Low / Very low and briefly justify it.
     - If the retrieved papers are not a perfect match, explicitly say so.
     - Do not overclaim from abstracts, reviews, pilots, animal studies, or uncontrolled studies.
+    """
+).strip()
+
+GUIDELINE_CARD_PROMPT = dedent(
+    """
+    Strict guideline output rules:
+    - Your first visible line must be exactly: Bottom line
+    - Do not start with any other title.
+    - Use this exact heading order:
+      Bottom line
+      Guideline Card
+      Source identity
+      What it recommends / emphasizes
+      Evidence strength
+      What it does NOT settle
+      Risks / caveats
+      Questions for a clinician
+      Practical next step
+    - Include official guideline links and PMID/PubMed URLs when available.
+    - Clearly distinguish official guideline pages from PubMed literature records.
+    - Do not invent recommendations, dosing, durations, or source text not present in retrieved context.
     """
 ).strip()
 
@@ -132,6 +206,9 @@ MODE_PROMPTS = {
     "compare": BASE_PROMPT
     + "\n\nMode: source/guideline comparison. Use retrieved PubMed records when present. Compare two organizations, guidelines, studies, or claims side-by-side. Separate agreement, disagreement, evidence quality, and patient-facing implications. Do not invent source details.\n\n"
     + COMPARE_CARD_PROMPT,
+    "guideline": BASE_PROMPT
+    + "\n\nMode: guideline card. Use retrieved official guideline seed context and PubMed records when present. Summarize one guideline/source, its scope, what it emphasizes, evidence strength, caveats, and patient-facing clinician questions.\n\n"
+    + GUIDELINE_CARD_PROMPT,
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
@@ -151,6 +228,7 @@ START_TEXT = dedent(
     /research - PubMed aramasi + kanit karti
     /treatment - PubMed destekli tedavi kanit-risk karti
     /compare - iki kaynak/guideline/iddia karsilastirma
+    /guideline - tek guideline/resmi kaynak ozeti
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -172,10 +250,11 @@ HELP_TEXT = dedent(
     /research post-treatment Lyme disease syndrome randomized trial
     /treatment long-term antibiotics post-treatment Lyme disease syndrome
     /compare IDSA vs ILADS chronic Lyme treatment
+    /guideline NICE Lyme disease ongoing symptoms
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    /paper, /research, /treatment ve /compare PubMed'den kayit cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
+    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
     """
 ).strip()
 
@@ -199,6 +278,7 @@ COMMAND_HINTS = {
     "research": "PubMed'de ne arayayim? Ornek: post-treatment Lyme disease syndrome randomized trial",
     "treatment": "Hangi tedavi veya iddiayi PubMed destekli inceleyeyim? Ornek: long-term antibiotics post-treatment Lyme disease syndrome",
     "compare": "Neyi karsilastirayim? Ornek: IDSA vs ILADS chronic Lyme treatment",
+    "guideline": "Hangi guideline/resmi kaynagi ozetleyeyim? Ornek: CDC Lyme treatment veya NICE ongoing symptoms",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -394,6 +474,30 @@ async def build_compare_context(query_or_pmid: str, limit: int = 5) -> tuple[str
     return await build_pubmed_context(query_or_pmid, limit=limit)
 
 
+def match_known_guideline_lookup(query: str) -> dict | None:
+    lowered = query.lower()
+    for item in KNOWN_GUIDELINE_LOOKUPS:
+        if all(term in lowered for term in item["match_terms"]):
+            return item
+    return None
+
+
+async def build_guideline_context(query_or_pmid: str, limit: int = 5) -> tuple[str, list[str]]:
+    known = match_known_guideline_lookup(query_or_pmid)
+    if known:
+        context_parts = [known["context"]]
+        if known["pmids"]:
+            records = await pubmed_fetch(known["pmids"])
+            if records:
+                context_parts.append(format_pubmed_records(records))
+        return "\n\n".join(context_parts), [
+            f"Matched known guideline/source: {known['name']}",
+            f"Seeded PMID(s): {', '.join(known['pmids']) if known['pmids'] else 'none'}",
+        ]
+
+    return await build_pubmed_context(query_or_pmid, limit=limit)
+
+
 def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = answer.strip()
     normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
@@ -440,6 +544,7 @@ async def ask_with_pubmed(
     user_text: str,
     mode_label: str,
     compare_mode: bool = False,
+    guideline_mode: bool = False,
 ) -> None:
     if not update.message:
         return
@@ -449,6 +554,8 @@ async def ask_with_pubmed(
     try:
         if compare_mode:
             pubmed_context, search_note = await build_compare_context(user_text)
+        elif guideline_mode:
+            pubmed_context, search_note = await build_guideline_context(user_text)
         else:
             pubmed_context, search_note = await build_pubmed_context(user_text)
         enriched = dedent(
@@ -546,6 +653,20 @@ async def compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+async def guideline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["guideline"])
+        return
+    await ask_with_pubmed(
+        update,
+        MODE_PROMPTS["guideline"],
+        text,
+        "guideline/source card",
+        guideline_mode=True,
+    )
+
+
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "source")
 
@@ -577,6 +698,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("research", research))
     application.add_handler(CommandHandler("treatment", treatment))
     application.add_handler(CommandHandler("compare", compare))
+    application.add_handler(CommandHandler("guideline", guideline))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_message))
