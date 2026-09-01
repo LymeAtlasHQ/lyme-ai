@@ -44,16 +44,25 @@ BASE_PROMPT = dedent(
     - Encourage qualified clinicians for diagnosis and treatment decisions.
     - For emergency symptoms, advise urgent local medical help immediately.
     - For dosing, interactions, pregnancy, children, severe symptoms, or self-harm, use extra caution.
-    - Prefer neutral wording such as "a clinician experienced with Lyme/tick-borne disease" instead of loaded labels.
+    - Use neutral wording such as "a clinician experienced with Lyme/tick-borne disease".
+    - Never use the phrase "Lyme-literate".
     - Keep Telegram replies compact, readable, and action-oriented.
     """
 ).strip()
 
 EVIDENCE_CARD_PROMPT = dedent(
     """
-    Evidence Card output rules:
-    - Start with a one-paragraph bottom line.
-    - Then use these headings: Evidence Card, What was retrieved, What it supports, What it does NOT prove, Risks / caveats, Practical next step.
+    Strict Evidence Card output rules:
+    - Your first visible line must be exactly: Bottom line
+    - Do not start with any other title, including "Research scout summary", "Treatment summary", or similar.
+    - Use this exact heading order:
+      Bottom line
+      Evidence Card
+      What was retrieved
+      What it supports
+      What it does NOT prove
+      Risks / caveats
+      Practical next step
     - Include PMID and PubMed URL for each central paper when available.
     - Rank evidence strength as High / Moderate / Low / Very low and briefly justify it.
     - If the retrieved papers are not a perfect match, explicitly say so.
@@ -312,6 +321,16 @@ async def build_pubmed_context(query_or_pmid: str, limit: int = 5) -> tuple[str,
     return format_pubmed_records(records), search_note
 
 
+def normalize_answer(answer: str, evidence_card: bool = False) -> str:
+    normalized = answer.strip()
+    normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
+    normalized = re.sub(r"(?im)^#{1,6}\s*Research scout summary[^\n]*\n+", "", normalized)
+    normalized = re.sub(r"(?im)^#{1,6}\s*Treatment summary[^\n]*\n+", "", normalized)
+    if evidence_card and not re.match(r"(?i)^#{0,3}\s*Bottom line\b", normalized):
+        normalized = "Bottom line\n\n" + normalized
+    return normalized
+
+
 async def send_chunks(update: Update, text: str) -> None:
     if not update.message:
         return
@@ -320,7 +339,7 @@ async def send_chunks(update: Update, text: str) -> None:
         await update.message.reply_text(clean[start : start + MAX_TELEGRAM_MESSAGE])
 
 
-async def ask_model(update: Update, prompt: str, user_text: str) -> None:
+async def ask_model(update: Update, prompt: str, user_text: str, evidence_card: bool = False) -> None:
     if not update.message:
         return
 
@@ -334,7 +353,7 @@ async def ask_model(update: Update, prompt: str, user_text: str) -> None:
                 {"role": "user", "content": user_text},
             ],
         )
-        answer = response.output_text.strip()
+        answer = normalize_answer(response.output_text, evidence_card=evidence_card)
     except Exception:
         logger.exception("Telegram answer failed")
         answer = "Su an cevap uretirken sorun yasadim. Birazdan tekrar dener misin?"
@@ -363,9 +382,10 @@ async def ask_with_pubmed(update: Update, prompt: str, user_text: str, mode_labe
 
             Task:
             Use the retrieved PubMed context for the {mode_label}. If records are weakly related or missing abstracts, say that clearly. Keep the answer practical and safe.
+            The final answer must start with the exact line "Bottom line" and follow the Evidence Card heading order from the system instructions.
             """
         ).strip()
-        await ask_model(update, prompt, enriched)
+        await ask_model(update, prompt, enriched, evidence_card=True)
     except Exception:
         logger.exception("PubMed retrieval failed")
         fallback = dedent(
