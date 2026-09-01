@@ -33,6 +33,8 @@ For `/paper`, `/research`, and `/treatment`, the bot tries to retrieve PubMed re
 
 The bot should include central PMID links when available and label evidence strength as High, Moderate, Low, or Very low.
 
+Known IDSA/ILADS comparison queries are seeded with the IDSA/AAN/ACR 2020 guideline PubMed record, the ILADS 2014 guideline PubMed record, a recent PTLDS systematic review, and official guideline pages so the comparison does not fall back to an empty PubMed search.
+
 ### Required environment variables
 
 ```bash
