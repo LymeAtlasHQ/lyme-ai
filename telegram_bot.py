@@ -44,7 +44,20 @@ BASE_PROMPT = dedent(
     - Encourage qualified clinicians for diagnosis and treatment decisions.
     - For emergency symptoms, advise urgent local medical help immediately.
     - For dosing, interactions, pregnancy, children, severe symptoms, or self-harm, use extra caution.
+    - Prefer neutral wording such as "a clinician experienced with Lyme/tick-borne disease" instead of loaded labels.
     - Keep Telegram replies compact, readable, and action-oriented.
+    """
+).strip()
+
+EVIDENCE_CARD_PROMPT = dedent(
+    """
+    Evidence Card output rules:
+    - Start with a one-paragraph bottom line.
+    - Then use these headings: Evidence Card, What was retrieved, What it supports, What it does NOT prove, Risks / caveats, Practical next step.
+    - Include PMID and PubMed URL for each central paper when available.
+    - Rank evidence strength as High / Moderate / Low / Very low and briefly justify it.
+    - If the retrieved papers are not a perfect match, explicitly say so.
+    - Do not overclaim from abstracts, reviews, pilots, animal studies, or uncontrolled studies.
     """
 ).strip()
 
@@ -55,11 +68,14 @@ MODE_PROMPTS = {
     "doctorbrief": BASE_PROMPT
     + "\n\nMode: doctor brief. Produce a short appointment brief: main concern, timeline, current meds/supplements if provided, tests/results to bring, focused questions to ask, and what would change urgency.",
     "paper": BASE_PROMPT
-    + "\n\nMode: paper/article analysis. Use the retrieved PubMed record when present. Summarize: research question, methods, population/model, findings, limits, evidence strength, and practical meaning. Do not invent missing paper details.",
+    + "\n\nMode: paper/article analysis. Use the retrieved PubMed record when present. Do not invent missing paper details.\n\n"
+    + EVIDENCE_CARD_PROMPT,
     "research": BASE_PROMPT
-    + "\n\nMode: research scout. Use retrieved PubMed records when present. Compare what the papers appear to address, identify the most relevant records, and suggest what to read next. Do not overclaim beyond titles/abstracts.",
+    + "\n\nMode: research scout. Use retrieved PubMed records when present. Compare what the papers appear to address, identify the most relevant records, and suggest what to read next. Do not overclaim beyond titles/abstracts.\n\n"
+    + EVIDENCE_CARD_PROMPT,
     "treatment": BASE_PROMPT
-    + "\n\nMode: treatment evidence review. Separate established guideline-backed care, plausible but uncertain approaches, unsupported claims, risks, and clinician questions. Do not tell the user to start/stop/change treatment.",
+    + "\n\nMode: treatment evidence review. Use retrieved PubMed records when present. Separate established guideline-backed care, plausible but uncertain approaches, unsupported claims, risks, and clinician questions. Do not tell the user to start/stop/change treatment.\n\n"
+    + EVIDENCE_CARD_PROMPT,
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
@@ -76,8 +92,8 @@ START_TEXT = dedent(
     /symptoms - belirti kaydi ve doktorluk ozet
     /doctorbrief - randevuya hazirlik ozeti
     /paper - PubMed PMID/abstract/makale analizi
-    /research - PubMed aramasi + kisa kanit haritasi
-    /treatment - tedavi iddiasini kanit-risk acisindan incele
+    /research - PubMed aramasi + kanit karti
+    /treatment - PubMed destekli tedavi kanit-risk karti
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -97,11 +113,11 @@ HELP_TEXT = dedent(
     /paper 12345678
     /paper chronic lyme antibiotic trial
     /research post-treatment Lyme disease syndrome randomized trial
-    /treatment Uzun sureli antibiyotik tedavisinin kanit durumu ne?
+    /treatment long-term antibiotics post-treatment Lyme disease syndrome
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    Komuttan sonra metin yazarsan direkt cevaplarim. Sadece komutu yazarsan senden gerekli bilgiyi isterim.
+    /paper, /research ve /treatment PubMed'den kayit cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
     """
 ).strip()
 
@@ -123,7 +139,7 @@ COMMAND_HINTS = {
     "doctorbrief": "Randevu icin sikayetini, sureyi, mevcut ilaclari, test sonuclarini ve doktora sormak istediklerini yaz.",
     "paper": "PMID, DOI, makale basligi, PubMed arama cumlesi, abstract veya metin yapistir. PMID/baslik varsa PubMed'den cekip analiz edecegim.",
     "research": "PubMed'de ne arayayim? Ornek: post-treatment Lyme disease syndrome randomized trial",
-    "treatment": "Hangi tedavi veya iddiayi inceleyeyim? Ilac, protokol, destek urunu veya yaklasimi tek mesajda yaz.",
+    "treatment": "Hangi tedavi veya iddiayi PubMed destekli inceleyeyim? Ornek: long-term antibiotics post-treatment Lyme disease syndrome",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -407,7 +423,11 @@ async def research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def treatment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await mode_command(update, context, "treatment")
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["treatment"])
+        return
+    await ask_with_pubmed(update, MODE_PROMPTS["treatment"], text, "treatment evidence review")
 
 
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
