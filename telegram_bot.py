@@ -29,6 +29,28 @@ MAX_TELEGRAM_MESSAGE = 3900
 PUBMED_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
+KNOWN_GUIDELINE_COMPARISONS = [
+    {
+        "name": "IDSA/AAN/ACR 2020 vs ILADS 2014 Lyme guidelines",
+        "match_terms": ("idsa", "ilads", "lyme"),
+        "pmids": ["33251700", "25077519", "38606630", "32457042"],
+        "context": dedent(
+            """
+            Known guideline comparison seed:
+            - IDSA/AAN/ACR 2020 Lyme disease guideline official page: https://www.idsociety.org/practice-guideline/lyme-disease/
+            - IDSA/AAN/ACR 2020 guideline PubMed record: https://pubmed.ncbi.nlm.nih.gov/33251700/
+            - ILADS treatment guideline official page: https://www.ilads.org/patient-care/ilads-treatment-guidelines/
+            - ILADS 2014 guideline PubMed record: https://pubmed.ncbi.nlm.nih.gov/25077519/
+            - Recent PTLDS treatment systematic review: https://pubmed.ncbi.nlm.nih.gov/38606630/
+            - BMJ Lyme diagnosis/management review: https://pubmed.ncbi.nlm.nih.gov/32457042/
+
+            Use these as retrieved context, not as permission to invent exact recommendations that are not present in the PubMed abstracts.
+            The official pages are guideline source links; PubMed records are biomedical literature links.
+            """
+        ).strip(),
+    }
+]
+
 BASE_PROMPT = dedent(
     """
     You are Lymewire, an evidence-aware Lyme disease and tick-borne illness research assistant.
@@ -349,6 +371,29 @@ async def build_pubmed_context(query_or_pmid: str, limit: int = 5) -> tuple[str,
     return format_pubmed_records(records), search_note
 
 
+def match_known_guideline_comparison(query: str) -> dict | None:
+    lowered = query.lower()
+    for item in KNOWN_GUIDELINE_COMPARISONS:
+        if all(term in lowered for term in item["match_terms"]):
+            return item
+    return None
+
+
+async def build_compare_context(query_or_pmid: str, limit: int = 5) -> tuple[str, list[str]]:
+    known = match_known_guideline_comparison(query_or_pmid)
+    if known:
+        records = await pubmed_fetch(known["pmids"])
+        context_parts = [known["context"]]
+        if records:
+            context_parts.append(format_pubmed_records(records))
+        return "\n\n".join(context_parts), [
+            f"Matched known comparison: {known['name']}",
+            f"Seeded PMID(s): {', '.join(known['pmids'])}",
+        ]
+
+    return await build_pubmed_context(query_or_pmid, limit=limit)
+
+
 def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = answer.strip()
     normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
@@ -389,14 +434,23 @@ async def ask_model(update: Update, prompt: str, user_text: str, evidence_card: 
     await send_chunks(update, answer)
 
 
-async def ask_with_pubmed(update: Update, prompt: str, user_text: str, mode_label: str) -> None:
+async def ask_with_pubmed(
+    update: Update,
+    prompt: str,
+    user_text: str,
+    mode_label: str,
+    compare_mode: bool = False,
+) -> None:
     if not update.message:
         return
 
     await update.message.chat.send_action(action=ChatAction.TYPING)
 
     try:
-        pubmed_context, search_note = await build_pubmed_context(user_text)
+        if compare_mode:
+            pubmed_context, search_note = await build_compare_context(user_text)
+        else:
+            pubmed_context, search_note = await build_pubmed_context(user_text)
         enriched = dedent(
             f"""
             User request:
@@ -483,7 +537,13 @@ async def compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text:
         await send_chunks(update, COMMAND_HINTS["compare"])
         return
-    await ask_with_pubmed(update, MODE_PROMPTS["compare"], text, "source/guideline comparison")
+    await ask_with_pubmed(
+        update,
+        MODE_PROMPTS["compare"],
+        text,
+        "source/guideline comparison",
+        compare_mode=True,
+    )
 
 
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
