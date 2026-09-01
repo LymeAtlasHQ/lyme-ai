@@ -4,7 +4,19 @@ AI systems for evidence-based Lyme disease research and knowledge management.
 
 ## Telegram bot
 
-The first Lymewire Telegram bot entrypoint is `telegram_bot.py`.
+The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
+
+### Current capabilities
+
+- General Lyme and tick-borne illness Q&A with safety boundaries.
+- `/symptoms` for symptom intake and clinician-facing summary structure.
+- `/doctorbrief` for appointment preparation.
+- `/paper` for PubMed PMID/search-based article analysis.
+- `/research` for PubMed search plus a short evidence map.
+- `/treatment` for treatment-claim evidence/risk review.
+- `/source` for source-aware answers.
+- `/calm` for anxiety/panic-safe support.
+- `/safety` for emergency warning boundaries.
 
 ### Required environment variables
 
@@ -13,6 +25,13 @@ OPENAI_API_KEY=your_openai_api_key_here
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 MODEL=gpt-5.5
 APP_NAME=Lymewire
+```
+
+Optional NCBI/PubMed metadata:
+
+```bash
+NCBI_TOOL_NAME=lymewire
+NCBI_EMAIL=you@example.com
 ```
 
 Create the Telegram token with BotFather:
@@ -44,7 +63,18 @@ For the FastAPI service, keep using:
 uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-The bot uses polling in this first version, so it does not need a public webhook URL yet.
+The bot uses polling in this version, so it does not need a public webhook URL yet.
+
+### Example Telegram prompts
+
+```text
+/paper 12345678
+/paper post-treatment Lyme disease syndrome randomized trial
+/research chronic Lyme antibiotic retreatment trial
+/treatment long-term antibiotics for persistent Lyme symptoms
+/doctorbrief 3 weeks doxycycline, diarrhea and fatigue, no fever
+/calm I am panicking and my heart is racing
+```
 
 ## Safety boundary
 
