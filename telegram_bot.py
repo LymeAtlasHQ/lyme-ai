@@ -70,6 +70,28 @@ EVIDENCE_CARD_PROMPT = dedent(
     """
 ).strip()
 
+COMPARE_CARD_PROMPT = dedent(
+    """
+    Strict comparison output rules:
+    - Your first visible line must be exactly: Bottom line
+    - Do not start with any other title.
+    - Use this exact heading order:
+      Bottom line
+      Comparison Card
+      What was retrieved
+      Side-by-side comparison
+      Where they agree
+      Where they differ
+      What this does NOT prove
+      Risks / caveats
+      Practical next step
+    - Compare positions neutrally, but do not create false balance when evidence strength differs.
+    - Include PMID and PubMed URL for central papers when available.
+    - If the retrieved PubMed records do not directly represent both sides, say so clearly.
+    - Do not invent guideline text, organization positions, citations, or URLs.
+    """
+).strip()
+
 MODE_PROMPTS = {
     "default": BASE_PROMPT,
     "symptoms": BASE_PROMPT
@@ -85,6 +107,9 @@ MODE_PROMPTS = {
     "treatment": BASE_PROMPT
     + "\n\nMode: treatment evidence review. Use retrieved PubMed records when present. Separate established guideline-backed care, plausible but uncertain approaches, unsupported claims, risks, and clinician questions. Do not tell the user to start/stop/change treatment.\n\n"
     + EVIDENCE_CARD_PROMPT,
+    "compare": BASE_PROMPT
+    + "\n\nMode: source/guideline comparison. Use retrieved PubMed records when present. Compare two organizations, guidelines, studies, or claims side-by-side. Separate agreement, disagreement, evidence quality, and patient-facing implications. Do not invent source details.\n\n"
+    + COMPARE_CARD_PROMPT,
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
@@ -103,6 +128,7 @@ START_TEXT = dedent(
     /paper - PubMed PMID/abstract/makale analizi
     /research - PubMed aramasi + kanit karti
     /treatment - PubMed destekli tedavi kanit-risk karti
+    /compare - iki kaynak/guideline/iddia karsilastirma
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -123,10 +149,11 @@ HELP_TEXT = dedent(
     /paper chronic lyme antibiotic trial
     /research post-treatment Lyme disease syndrome randomized trial
     /treatment long-term antibiotics post-treatment Lyme disease syndrome
+    /compare IDSA vs ILADS chronic Lyme treatment
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    /paper, /research ve /treatment PubMed'den kayit cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
+    /paper, /research, /treatment ve /compare PubMed'den kayit cekmeye calisir. PMID verirsen dogrudan o makaleyi inceler.
     """
 ).strip()
 
@@ -149,6 +176,7 @@ COMMAND_HINTS = {
     "paper": "PMID, DOI, makale basligi, PubMed arama cumlesi, abstract veya metin yapistir. PMID/baslik varsa PubMed'den cekip analiz edecegim.",
     "research": "PubMed'de ne arayayim? Ornek: post-treatment Lyme disease syndrome randomized trial",
     "treatment": "Hangi tedavi veya iddiayi PubMed destekli inceleyeyim? Ornek: long-term antibiotics post-treatment Lyme disease syndrome",
+    "compare": "Neyi karsilastirayim? Ornek: IDSA vs ILADS chronic Lyme treatment",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -450,6 +478,14 @@ async def treatment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await ask_with_pubmed(update, MODE_PROMPTS["treatment"], text, "treatment evidence review")
 
 
+async def compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["compare"])
+        return
+    await ask_with_pubmed(update, MODE_PROMPTS["compare"], text, "source/guideline comparison")
+
+
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "source")
 
@@ -480,6 +516,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("paper", paper))
     application.add_handler(CommandHandler("research", research))
     application.add_handler(CommandHandler("treatment", treatment))
+    application.add_handler(CommandHandler("compare", compare))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_message))
