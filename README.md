@@ -15,6 +15,7 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 - `/research` for PubMed search plus a short evidence map.
 - `/treatment` for PubMed-backed treatment-claim evidence/risk cards.
 - `/compare` for PubMed-backed side-by-side comparison of guidelines, organizations, studies, or claims.
+- `/guideline` for seeded official-source summaries of IDSA, ILADS, CDC, or NICE guideline pages.
 - `/source` for source-aware answers.
 - `/calm` for anxiety/panic-safe support.
 - `/safety` for emergency warning boundaries.
@@ -90,6 +91,8 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 /research chronic Lyme antibiotic retreatment trial
 /treatment long-term antibiotics post-treatment Lyme disease syndrome
 /compare IDSA vs ILADS chronic Lyme treatment
+/guideline CDC Lyme treatment
+/guideline NICE Lyme disease ongoing symptoms
 /doctorbrief 3 weeks doxycycline, diarrhea and fatigue, no fever
 /calm I am panicking and my heart is racing
 ```
