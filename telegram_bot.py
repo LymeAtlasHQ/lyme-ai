@@ -1,7 +1,10 @@
 import logging
 import os
+import re
+import xml.etree.ElementTree as ET
 from textwrap import dedent
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 from telegram import Update
@@ -20,7 +23,11 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = os.getenv("MODEL", "gpt-5.5")
 APP_NAME = os.getenv("APP_NAME", "Lymewire")
+NCBI_TOOL_NAME = os.getenv("NCBI_TOOL_NAME", "lymewire")
+NCBI_EMAIL = os.getenv("NCBI_EMAIL")
 MAX_TELEGRAM_MESSAGE = 3900
+PUBMED_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
 BASE_PROMPT = dedent(
     """
@@ -48,7 +55,9 @@ MODE_PROMPTS = {
     "doctorbrief": BASE_PROMPT
     + "\n\nMode: doctor brief. Produce a short appointment brief: main concern, timeline, current meds/supplements if provided, tests/results to bring, focused questions to ask, and what would change urgency.",
     "paper": BASE_PROMPT
-    + "\n\nMode: paper/article analysis. If the user provides an abstract, title, DOI, PMID, or pasted text, summarize: question, methods, population, findings, limits, evidence strength, and practical meaning. Do not invent missing paper details.",
+    + "\n\nMode: paper/article analysis. Use the retrieved PubMed record when present. Summarize: research question, methods, population/model, findings, limits, evidence strength, and practical meaning. Do not invent missing paper details.",
+    "research": BASE_PROMPT
+    + "\n\nMode: research scout. Use retrieved PubMed records when present. Compare what the papers appear to address, identify the most relevant records, and suggest what to read next. Do not overclaim beyond titles/abstracts.",
     "treatment": BASE_PROMPT
     + "\n\nMode: treatment evidence review. Separate established guideline-backed care, plausible but uncertain approaches, unsupported claims, risks, and clinician questions. Do not tell the user to start/stop/change treatment.",
     "source": BASE_PROMPT
@@ -66,7 +75,8 @@ START_TEXT = dedent(
     Komutlar:
     /symptoms - belirti kaydi ve doktorluk ozet
     /doctorbrief - randevuya hazirlik ozeti
-    /paper - makale/abstract/PMID analizi
+    /paper - PubMed PMID/abstract/makale analizi
+    /research - PubMed aramasi + kisa kanit haritasi
     /treatment - tedavi iddiasini kanit-risk acisindan incele
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
@@ -84,7 +94,9 @@ HELP_TEXT = dedent(
     Hizli kullanim:
     /symptoms Bugun bas agrisi, carpinti ve halsizlik var. Ates yok.
     /doctorbrief 3 haftadir doksisiklin kullandim, ishal ve halsizlik oldu.
-    /paper PMID veya makale ozetini buraya yapistir.
+    /paper 12345678
+    /paper chronic lyme antibiotic trial
+    /research post-treatment Lyme disease syndrome randomized trial
     /treatment Uzun sureli antibiyotik tedavisinin kanit durumu ne?
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
@@ -109,7 +121,8 @@ SAFETY_TEXT = dedent(
 COMMAND_HINTS = {
     "symptoms": "Belirtilerini, ne zaman basladigini, ates olup olmadigini, kullandigin ilaclari ve seni en cok korkutan seyi tek mesajda yaz.",
     "doctorbrief": "Randevu icin sikayetini, sureyi, mevcut ilaclari, test sonuclarini ve doktora sormak istediklerini yaz.",
-    "paper": "Makale basligini, DOI/PMID numarasini, abstract'i veya metni yapistir. Ben ozetleyip kanit gucunu ayiracagim.",
+    "paper": "PMID, DOI, makale basligi, PubMed arama cumlesi, abstract veya metin yapistir. PMID/baslik varsa PubMed'den cekip analiz edecegim.",
+    "research": "PubMed'de ne arayayim? Ornek: post-treatment Lyme disease syndrome randomized trial",
     "treatment": "Hangi tedavi veya iddiayi inceleyeyim? Ilac, protokol, destek urunu veya yaklasimi tek mesajda yaz.",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
@@ -131,6 +144,156 @@ client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 def command_text(context: ContextTypes.DEFAULT_TYPE) -> str:
     return " ".join(context.args).strip() if context.args else ""
+
+
+def ncbi_params(extra: dict) -> dict:
+    params = {"tool": NCBI_TOOL_NAME, **extra}
+    if NCBI_EMAIL:
+        params["email"] = NCBI_EMAIL
+    return params
+
+
+def extract_pmids(text: str) -> list[str]:
+    pmids = re.findall(r"(?i)(?:PMID[:\s#]*|pubmed\.ncbi\.nlm\.nih\.gov/)(\d{6,9})", text)
+    stripped = text.strip()
+    if not pmids and re.fullmatch(r"\d{6,9}", stripped):
+        pmids = [stripped]
+    return list(dict.fromkeys(pmids))[:5]
+
+
+def clean_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(value.split())
+
+
+def element_text(element: ET.Element | None) -> str:
+    if element is None:
+        return ""
+    return clean_text("".join(element.itertext()))
+
+
+def article_year(article: ET.Element) -> str:
+    for path in (
+        ".//ArticleDate/Year",
+        ".//JournalIssue/PubDate/Year",
+        ".//JournalIssue/PubDate/MedlineDate",
+    ):
+        value = clean_text(article.findtext(path))
+        if value:
+            return value
+    return "Unknown year"
+
+
+def article_doi(article: ET.Element) -> str:
+    for article_id in article.findall(".//ArticleId"):
+        if article_id.attrib.get("IdType", "").lower() == "doi":
+            return clean_text(article_id.text)
+    return ""
+
+
+def article_abstract(article: ET.Element) -> str:
+    parts = []
+    for abstract_text in article.findall(".//Abstract/AbstractText"):
+        label = abstract_text.attrib.get("Label")
+        text = element_text(abstract_text)
+        if text and label:
+            parts.append(f"{label}: {text}")
+        elif text:
+            parts.append(text)
+    return " ".join(parts)
+
+
+async def pubmed_search(query: str, limit: int = 5) -> list[str]:
+    params = ncbi_params(
+        {
+            "db": "pubmed",
+            "term": query,
+            "retmode": "json",
+            "retmax": str(limit),
+            "sort": "relevance",
+        }
+    )
+    async with httpx.AsyncClient(timeout=20) as http:
+        response = await http.get(PUBMED_SEARCH_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+    return data.get("esearchresult", {}).get("idlist", [])
+
+
+async def pubmed_fetch(pmids: list[str]) -> list[dict]:
+    if not pmids:
+        return []
+    params = ncbi_params(
+        {
+            "db": "pubmed",
+            "id": ",".join(pmids),
+            "retmode": "xml",
+            "rettype": "abstract",
+        }
+    )
+    async with httpx.AsyncClient(timeout=30) as http:
+        response = await http.get(PUBMED_FETCH_URL, params=params)
+        response.raise_for_status()
+        xml_text = response.text
+
+    root = ET.fromstring(xml_text)
+    records = []
+    for item in root.findall(".//PubmedArticle"):
+        pmid = clean_text(item.findtext("./MedlineCitation/PMID"))
+        title = element_text(item.find("./MedlineCitation/Article/ArticleTitle"))
+        journal = clean_text(item.findtext("./MedlineCitation/Article/Journal/Title"))
+        abstract = article_abstract(item)
+        doi = article_doi(item)
+        records.append(
+            {
+                "pmid": pmid,
+                "title": title,
+                "journal": journal,
+                "year": article_year(item),
+                "doi": doi,
+                "abstract": abstract,
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
+            }
+        )
+    return records
+
+
+def format_pubmed_records(records: list[dict]) -> str:
+    blocks = []
+    for index, record in enumerate(records, start=1):
+        abstract = record.get("abstract") or "No abstract available in PubMed response."
+        if len(abstract) > 1400:
+            abstract = abstract[:1400].rstrip() + "..."
+        blocks.append(
+            dedent(
+                f"""
+                [{index}] PMID: {record.get('pmid')}
+                Title: {record.get('title')}
+                Journal/year: {record.get('journal')} / {record.get('year')}
+                DOI: {record.get('doi') or 'Not listed'}
+                URL: {record.get('url')}
+                Abstract: {abstract}
+                """
+            ).strip()
+        )
+    return "\n\n".join(blocks)
+
+
+async def build_pubmed_context(query_or_pmid: str, limit: int = 5) -> tuple[str, list[str]]:
+    pmids = extract_pmids(query_or_pmid)
+    search_note = []
+    if pmids:
+        search_note.append(f"Detected PMID(s): {', '.join(pmids)}")
+    else:
+        search_note.append(f"PubMed search query: {query_or_pmid}")
+        pmids = await pubmed_search(query_or_pmid, limit=limit)
+        search_note.append(f"Retrieved PMID(s): {', '.join(pmids) if pmids else 'none'}")
+
+    records = await pubmed_fetch(pmids)
+    if not records:
+        return "No PubMed records were retrieved.", search_note
+    return format_pubmed_records(records), search_note
 
 
 async def send_chunks(update: Update, text: str) -> None:
@@ -163,6 +326,42 @@ async def ask_model(update: Update, prompt: str, user_text: str) -> None:
     await send_chunks(update, answer)
 
 
+async def ask_with_pubmed(update: Update, prompt: str, user_text: str, mode_label: str) -> None:
+    if not update.message:
+        return
+
+    await update.message.chat.send_action(action=ChatAction.TYPING)
+
+    try:
+        pubmed_context, search_note = await build_pubmed_context(user_text)
+        enriched = dedent(
+            f"""
+            User request:
+            {user_text}
+
+            Retrieval notes:
+            {'; '.join(search_note)}
+
+            Retrieved PubMed context:
+            {pubmed_context}
+
+            Task:
+            Use the retrieved PubMed context for the {mode_label}. If records are weakly related or missing abstracts, say that clearly. Keep the answer practical and safe.
+            """
+        ).strip()
+        await ask_model(update, prompt, enriched)
+    except Exception:
+        logger.exception("PubMed retrieval failed")
+        fallback = dedent(
+            f"""
+            PubMed kaydini su an cekemedim; yine de verdigin metin/arama cumlesi uzerinden guvenli bir on analiz yapabilirim.
+
+            Istersen tekrar dene veya PMID/abstract'i direkt yapistir.
+            """
+        ).strip()
+        await send_chunks(update, fallback)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_chunks(update, START_TEXT)
 
@@ -192,7 +391,19 @@ async def doctorbrief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def paper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await mode_command(update, context, "paper")
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["paper"])
+        return
+    await ask_with_pubmed(update, MODE_PROMPTS["paper"], text, "paper/article analysis")
+
+
+async def research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["research"])
+        return
+    await ask_with_pubmed(update, MODE_PROMPTS["research"], text, "research scout summary")
 
 
 async def treatment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -227,6 +438,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("symptoms", symptoms))
     application.add_handler(CommandHandler("doctorbrief", doctorbrief))
     application.add_handler(CommandHandler("paper", paper))
+    application.add_handler(CommandHandler("research", research))
     application.add_handler(CommandHandler("treatment", treatment))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
