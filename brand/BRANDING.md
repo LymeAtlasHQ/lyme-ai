@@ -1,8 +1,8 @@
-# LimeWire Brand Kit
+# LymeWire Brand Kit
 
 ## Public Name
 
-LimeWire
+LymeWire
 
 ## Short Description
 
@@ -10,18 +10,18 @@ Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber
 
 ## Long Description
 
-LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
+LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
 
 ## Telegram BotFather Fields
 
 Name:
-LimeWire
+LymeWire
 
 About:
 Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber.
 
 Description:
-LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
+LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
 
 ## Logo
 
