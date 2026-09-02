@@ -151,7 +151,15 @@ DEFAULT_RESPONSE_PROMPT = dedent(
       Guvenlik / aciliyet
     - Keep each section short but substantive.
     - If the user writes Turkish, use Turkish headings and a warm, direct tone.
-    - If the question needs sources, suggest the best command: /research, /paper, /treatment, /compare, /guideline, or /trial.
+    - For evidence-heavy questions, explicitly say when the current reply is a general AI answer rather than a retrieved-source card.
+    - End evidence-heavy answers with one short "Kaynakli derinlestirme" line that suggests the best exact command.
+    - Prefer specific command suggestions, for example:
+      /research post-treatment Lyme disease syndrome randomized trial
+      /treatment long-term antibiotics post-treatment Lyme disease syndrome
+      /compare IDSA vs ILADS chronic Lyme treatment
+      /guideline NICE Lyme disease ongoing symptoms
+      /trial post-treatment Lyme disease syndrome
+    - Do not add this command line to simple greetings, emotional support, or emergency guidance.
     """
 ).strip()
 
