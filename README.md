@@ -1,10 +1,26 @@
-# lyme-ai
+# LimeWire AI
 
 AI systems for evidence-based Lyme disease research and knowledge management.
 
+## Brand surfaces
+
+Public-facing name: **LimeWire**
+
+Short description:
+
+> Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber.
+
+Long description:
+
+> LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
+
+Logo source: `brand/logo.svg`
+
+Telegram bot profile name, short description, long description, and command menu are configured automatically at startup from environment variables or these defaults. Bot profile photo still needs to be uploaded manually through BotFather.
+
 ## Telegram bot
 
-The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
+The LimeWire Telegram bot entrypoint is `telegram_bot.py`.
 
 ### Current capabilities
 
@@ -68,7 +84,7 @@ Known IDSA/ILADS comparison queries are seeded with the IDSA/AAN/ACR 2020 guidel
 OPENAI_API_KEY=your_openai_api_key_here
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 MODEL=gpt-5.5
-APP_NAME=Lymewire
+APP_NAME=LimeWire
 ```
 
 Optional NCBI/PubMed metadata:
@@ -82,7 +98,7 @@ Create the Telegram token with BotFather:
 
 1. Open Telegram and message `@BotFather`.
 2. Run `/newbot`.
-3. Pick a display name, for example `Lymewire`.
+3. Pick a display name, for example `LimeWire`.
 4. Pick a username ending in `bot`, for example `lymewire_ai_bot` if available.
 5. Copy the token into `TELEGRAM_BOT_TOKEN` in Railway or your local `.env` file.
 
@@ -128,4 +144,4 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 
 ## Safety boundary
 
-Lymewire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
+LimeWire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
