@@ -26,7 +26,7 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 
 ### Care finder mode
 
-`/care` handles questions like “Türkiye’de veya dünyada başarı oranı yüksek tedavileri, ilaçları ve hekimleri bulur musun?” It should not invent doctor rankings or guarantee success rates. It must first give a practical route, then the file checklist: Turkey/Izmir care pathway, worldwide academic starting points, guideline-backed vs uncertain treatments, coinfection/alternate-diagnosis checks, fake-claim filters, and the exact information needed to narrow the search.
+`/care` handles questions like “Türkiye’de veya dünyada başarı oranı yüksek tedavileri, ilaçları ve hekimleri bulur musun?” It should not invent doctor rankings or guarantee success rates. It must first give a practical route, then the file checklist: Turkey/Izmir care pathway, worldwide academic starting points with URLs when named, guideline-backed vs uncertain treatments, coinfection/alternate-diagnosis checks, fake-claim filters, practical search terms, a copy-paste appointment message, and the exact information needed to narrow the search.
 
 ### Conversation continuity
 
