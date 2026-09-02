@@ -292,6 +292,7 @@ CARE_FINDER_PROMPT = dedent(
     Turkiye'de nereye bakilir
     Dunyada bakilabilecek merkez tipleri
     Tedavi haritasi
+    Hekim/merkez ararken kullanilacak mesaj
     Kirmizi bayraklar ve sahte vaat filtresi
     Goturulecek dosya
     Bana sunu yaz, rotayi daraltayim
@@ -299,11 +300,14 @@ CARE_FINDER_PROMPT = dedent(
     Content expectations:
     - For Turkey/Izmir, suggest a Turkey-first pathway: university hospital or training/research hospital Infectious Diseases; add Rheumatology for persistent CRP/joint symptoms, Neurology for brain fog/focal neurologic symptoms, Cardiology for palpitations/fainting, Dermatology for rash.
     - For Izmir specifically, it is acceptable to mention checking university-hospital routes such as Ege University and Dokuz Eylul, plus MHRS/large training-research hospital infectious diseases clinics, phrased as starting points to verify rather than guaranteed Lyme specialists.
-    - For worldwide searches, include credible academic/research starting points, not endorsements or rankings: Johns Hopkins Lyme Disease Research Center and Columbia Lyme and Tick-Borne Diseases Research Center.
+    - For worldwide searches, include credible academic/research starting points, not endorsements or rankings: Johns Hopkins Lyme Disease Research Center and Columbia Lyme and Tick-Borne Diseases Research Center. If you name a center, include its URL.
     - For treatment, separate: guideline-backed active Lyme treatment, PTLDS/persistent-symptom care, coinfection evaluation, and experimental/uncertain approaches.
     - Say that early objectively diagnosed Lyme generally responds well to standard antibiotics, while prolonged antibiotics for PTLDS have not shown consistent benefit and carry risks.
     - If the user has long antibiotic exposure, emphasize reassessment before more antibiotics: objective active signs, coinfections, inflammatory/autoimmune causes, endocrine/nutritional/sleep/dysautonomia causes, medication effects.
     - Include practical search terms: "Enfeksiyon Hastaliklari Lyme Borrelia", "tick-borne disease clinic", "Lyme disease research center", "neuroborreliosis clinic".
+    - Include a short copy-paste appointment message the user can send to a hospital/clinic. It should mention Western blot, persistent CRP, long antibiotic exposure, dominant symptoms, and request reassessment for active Lyme vs PTLDS vs other inflammatory/neurologic causes.
+    - For Turkey, mention MHRS, university hospital appointment systems, and hospital patient services as practical routes; do not imply you have checked current appointment availability.
+    - If the user asks for a found list and live web lookup is unavailable inside Telegram, explain that the bot can prepare the search route and keywords, while a live web search should verify current doctors/appointments.
     - End with a concrete next message the user can send, but only after giving the route.
     - Never prescribe or tell the user to start/stop/change medication.
     """
