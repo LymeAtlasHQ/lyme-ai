@@ -7,7 +7,7 @@ from textwrap import dedent
 import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -22,7 +22,16 @@ logger = logging.getLogger("lymewire.telegram")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = os.getenv("MODEL", "gpt-5.5")
-APP_NAME = os.getenv("APP_NAME", "Lymewire")
+APP_NAME = os.getenv("APP_NAME", "LimeWire")
+BOT_DISPLAY_NAME = os.getenv("BOT_DISPLAY_NAME", APP_NAME)
+BOT_SHORT_DESCRIPTION = os.getenv(
+    "BOT_SHORT_DESCRIPTION",
+    "Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber.",
+)
+BOT_DESCRIPTION = os.getenv(
+    "BOT_DESCRIPTION",
+    "LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.",
+)
 NCBI_TOOL_NAME = os.getenv("NCBI_TOOL_NAME", "lymewire")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL")
 MAX_TELEGRAM_MESSAGE = 3900
@@ -109,14 +118,14 @@ KNOWN_GUIDELINE_LOOKUPS = [
 
 BASE_PROMPT = dedent(
     """
-    You are Lymewire, an evidence-aware Lyme disease and tick-borne illness research assistant.
+    You are LimeWire, an evidence-aware Lyme disease and tick-borne illness research assistant.
     Answer in the user's language when possible. Be clear, calm, practical, and honest about uncertainty.
 
     Product identity:
-    - Lymewire is not an AI doctor.
-    - Lymewire retrieves, compares, explains, and cites medical/scientific evidence.
-    - Lymewire supports patients, suspected patients, clinicians, researchers, and advocates.
-    - Lymewire's product promise is: evidence before opinion, no fake certainty, patient dignity, clinician usefulness, and safety boundaries.
+    - LimeWire is not an AI doctor.
+    - LimeWire retrieves, compares, explains, and cites medical/scientific evidence.
+    - LimeWire supports patients, suspected patients, clinicians, researchers, and advocates.
+    - LimeWire's product promise is: evidence before opinion, no fake certainty, patient dignity, clinician usefulness, and safety boundaries.
 
     Response quality contract:
     - Do not give bland generic medical disclaimers as the main answer.
@@ -1212,9 +1221,35 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+async def configure_bot_profile(application: Application) -> None:
+    commands = [
+        BotCommand("start", "LimeWire'i baslat"),
+        BotCommand("help", "Komutlari ve ornekleri goster"),
+        BotCommand("care", "Tedavi, hekim ve merkez rotasi"),
+        BotCommand("research", "PubMed aramasi ve kanit karti"),
+        BotCommand("treatment", "Tedavi iddiasi kanit-risk karti"),
+        BotCommand("paper", "PMID veya makale analizi"),
+        BotCommand("compare", "Guideline/kaynak/iddia karsilastir"),
+        BotCommand("guideline", "CDC, NICE, IDSA, ILADS ozeti"),
+        BotCommand("trial", "ClinicalTrials.gov calisma aramasi"),
+        BotCommand("doctorbrief", "Randevu icin kisa doktor notu"),
+        BotCommand("symptoms", "Belirti kaydi ve takip taslagi"),
+        BotCommand("calm", "Panik aninda sakin destek"),
+        BotCommand("safety", "Acil uyari sinirlari"),
+    ]
+    try:
+        await application.bot.set_my_name(BOT_DISPLAY_NAME)
+        await application.bot.set_my_short_description(BOT_SHORT_DESCRIPTION)
+        await application.bot.set_my_description(BOT_DESCRIPTION)
+        await application.bot.set_my_commands(commands)
+        logger.info("Configured Telegram profile for %s", BOT_DISPLAY_NAME)
+    except Exception:
+        logger.exception("Telegram profile configuration failed")
+
+
 def build_application() -> Application:
     require_env()
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(configure_bot_profile).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("safety", safety))
