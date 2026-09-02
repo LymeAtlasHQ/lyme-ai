@@ -17,11 +17,16 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 - `/compare` for PubMed-backed side-by-side comparison of guidelines, organizations, studies, or claims.
 - `/guideline` for seeded official-source summaries of IDSA, ILADS, CDC, or NICE guideline pages.
 - `/trial` for ClinicalTrials.gov study search and trial status summaries.
+- `/care` for treatment, doctor, and center-finding navigation without fake success-rate claims.
 - `/source` for source-aware answers.
 - `/calm` for anxiety/panic-safe support.
 - `/safety` for emergency warning boundaries.
 
 
+
+### Care finder mode
+
+`/care` handles questions like “Türkiye’de veya dünyada başarı oranı yüksek tedavileri, ilaçları ve hekimleri bulur musun?” It should not invent doctor rankings or guarantee success rates. Instead, it gives a practical route: guideline-backed treatments, uncertain/experimental options, coinfection/alternate-diagnosis checks, credible center types, known academic starting points, and the exact information needed to narrow the search.
 
 ### Conversation continuity
 
@@ -116,6 +121,7 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 /guideline NICE Lyme disease ongoing symptoms
 /trial post-treatment Lyme disease syndrome
 /trial Lyme vaccine
+/care Turkiye Izmir Lyme tedavi hekim merkez
 /doctorbrief 3 weeks doxycycline, diarrhea and fatigue, no fever
 /calm I am panicking and my heart is racing
 ```
