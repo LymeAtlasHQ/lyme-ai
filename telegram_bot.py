@@ -114,6 +114,19 @@ BASE_PROMPT = dedent(
     - Lymewire is not an AI doctor.
     - Lymewire retrieves, compares, explains, and cites medical/scientific evidence.
     - Lymewire supports patients, suspected patients, clinicians, researchers, and advocates.
+    - Lymewire's product promise is: evidence before opinion, no fake certainty, patient dignity, clinician usefulness, and safety boundaries.
+
+    Response quality contract:
+    - Do not give bland generic medical disclaimers as the main answer.
+    - Start with the most useful direct answer, then explain evidence and uncertainty.
+    - Make the answer usable for a patient: what to track, what to ask, what would change urgency.
+    - Separate established guidance, limited evidence, hypotheses, anecdotes, and unsupported claims.
+    - Name the evidence type when possible: guideline, systematic review, randomized trial, pilot trial, case report, animal/in-vitro, anecdote.
+    - Make certainty visible with short labels such as higher confidence, mixed/uncertain, or weak evidence.
+    - If sources are not retrieved, say so plainly and avoid pretending the answer is citation-backed.
+    - Detect false premises and correct them gently.
+    - Avoid both dismissal and overvalidation. Symptoms can be real even when cause/treatment is uncertain.
+    - Prefer concrete next questions over vague "talk to your doctor" endings.
 
     Safety boundaries:
     - Do not diagnose, prescribe, change medication, or replace urgent care.
@@ -125,6 +138,39 @@ BASE_PROMPT = dedent(
     - Keep Telegram replies compact, readable, and action-oriented.
     """
 ).strip()
+
+DEFAULT_RESPONSE_PROMPT = dedent(
+    """
+    Default conversation format:
+    - If the user is only greeting or testing the bot, answer naturally and briefly.
+    - For Lyme/tick-borne illness, symptom, treatment, test, article, or guideline questions, use these headings:
+      Kisa cevap
+      Kanit ve belirsizlik
+      Ne takip edilmeli
+      Doktora sorulacak iyi sorular
+      Guvenlik / aciliyet
+    - Keep each section short but substantive.
+    - If the user writes Turkish, use Turkish headings and a warm, direct tone.
+    - If the question needs sources, suggest the best command: /research, /paper, /treatment, /compare, /guideline, or /trial.
+    """
+).strip()
+
+QUALITY_REPAIR_PROMPT = dedent(
+    """
+    The draft answer was too generic or not useful enough for Lymewire's quality bar.
+    Rewrite it so it is specific, patient-useful, safe, and honest about uncertainty.
+
+    Required improvements:
+    - Lead with a direct practical answer.
+    - Include evidence/uncertainty, not just reassurance.
+    - Include what to track or bring to a clinician.
+    - Include 2-4 sharp clinician questions when relevant.
+    - Include emergency red flags when relevant.
+    - Do not diagnose, prescribe, or invent sources.
+    - Do not use the phrase "Lyme-literate".
+    """
+).strip()
+
 
 EVIDENCE_CARD_PROMPT = dedent(
     """
@@ -212,11 +258,11 @@ COMPARE_CARD_PROMPT = dedent(
 ).strip()
 
 MODE_PROMPTS = {
-    "default": BASE_PROMPT,
+    "default": BASE_PROMPT + "\n\n" + DEFAULT_RESPONSE_PROMPT,
     "symptoms": BASE_PROMPT
-    + "\n\nMode: symptom intake. Structure the reply as: red flags, concise symptom timeline, useful details to track, and what to tell a clinician. Do not claim permanent storage.",
+    + "\n\nMode: symptom intake. Use the headings: Kisa cevap, Kirmizi bayraklar, Belirti zaman cizelgesi, Takip edilecek veriler, Doktora hazir not. Be concrete and do not claim permanent storage.",
     "doctorbrief": BASE_PROMPT
-    + "\n\nMode: doctor brief. Produce a short appointment brief: main concern, timeline, current meds/supplements if provided, tests/results to bring, focused questions to ask, and what would change urgency.",
+    + "\n\nMode: doctor brief. Produce a clinician-facing appointment brief with: main concern, timeline, current meds/supplements if provided, tests/results to bring, differential questions to raise, and what would change urgency. Make it copy-paste useful.",
     "paper": BASE_PROMPT
     + "\n\nMode: paper/article analysis. Use the retrieved PubMed record when present. Do not invent missing paper details.\n\n"
     + EVIDENCE_CARD_PROMPT,
@@ -633,9 +679,50 @@ def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
     normalized = re.sub(r"(?im)^#{1,6}\s*Research scout summary[^\n]*\n+", "", normalized)
     normalized = re.sub(r"(?im)^#{1,6}\s*Treatment summary[^\n]*\n+", "", normalized)
+    normalized = re.sub(r"(?im)^#{1,6}\s*General medical disclaimer[^\n]*\n+", "", normalized)
+    normalized = normalized.replace("This is not medical advice.", "")
+    normalized = normalized.replace("Bu tıbbi tavsiye değildir.", "")
+    normalized = normalized.replace("Bu tibbi tavsiye degildir.", "")
     if evidence_card and not re.match(r"(?i)^#{0,3}\s*Bottom line\b", normalized):
         normalized = "Bottom line\n\n" + normalized
-    return normalized
+    return normalized.strip()
+
+
+def needs_quality_repair(answer: str, evidence_card: bool = False) -> bool:
+    if evidence_card:
+        return False
+    text = answer.strip()
+    if len(text) < 320:
+        return True
+    lowered = text.lower()
+    has_generic_exit = any(
+        phrase in lowered
+        for phrase in (
+            "consult your doctor",
+            "talk to your doctor",
+            "doktorunuza danış",
+            "doktorunuza danis",
+            "bir doktora danış",
+            "bir doktora danis",
+        )
+    )
+    has_useful_structure = any(
+        marker in lowered
+        for marker in (
+            "kanıt",
+            "kanit",
+            "belirsizlik",
+            "takip",
+            "sorulacak",
+            "red flag",
+            "kırmızı",
+            "kirmizi",
+            "acil",
+            "pmid",
+            "nct",
+        )
+    )
+    return has_generic_exit and not has_useful_structure
 
 
 async def send_chunks(update: Update, text: str) -> None:
@@ -646,7 +733,13 @@ async def send_chunks(update: Update, text: str) -> None:
         await update.message.reply_text(clean[start : start + MAX_TELEGRAM_MESSAGE])
 
 
-async def ask_model(update: Update, prompt: str, user_text: str, evidence_card: bool = False) -> None:
+async def ask_model(
+    update: Update,
+    prompt: str,
+    user_text: str,
+    evidence_card: bool = False,
+    quality_repair: bool = True,
+) -> None:
     if not update.message:
         return
 
@@ -661,6 +754,29 @@ async def ask_model(update: Update, prompt: str, user_text: str, evidence_card: 
             ],
         )
         answer = normalize_answer(response.output_text, evidence_card=evidence_card)
+
+        if quality_repair and needs_quality_repair(answer, evidence_card=evidence_card):
+            repair_response = client.responses.create(
+                model=MODEL,
+                input=[
+                    {"role": "system", "content": prompt + "\n\n" + QUALITY_REPAIR_PROMPT},
+                    {
+                        "role": "user",
+                        "content": dedent(
+                            f"""
+                            Original user request:
+                            {user_text}
+
+                            Draft answer that needs improvement:
+                            {answer}
+
+                            Rewrite the answer now.
+                            """
+                        ).strip(),
+                    },
+                ],
+            )
+            answer = normalize_answer(repair_response.output_text, evidence_card=evidence_card)
     except Exception:
         logger.exception("Telegram answer failed")
         answer = "Su an cevap uretirken sorun yasadim. Birazdan tekrar dener misin?"
@@ -772,7 +888,7 @@ async def mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE, mode:
     if not text:
         await send_chunks(update, COMMAND_HINTS[mode])
         return
-    await ask_model(update, MODE_PROMPTS[mode], text)
+    await ask_model(update, MODE_PROMPTS[mode], text, quality_repair=(mode != "calm"))
 
 
 async def symptoms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -859,7 +975,7 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not question:
         return
 
-    await ask_model(update, MODE_PROMPTS["default"], question)
+    await ask_model(update, MODE_PROMPTS["default"], question, quality_repair=True)
 
 
 def build_application() -> Application:
