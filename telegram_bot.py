@@ -271,6 +271,39 @@ COMPARE_CARD_PROMPT = dedent(
     """
 ).strip()
 
+
+CARE_FINDER_PROMPT = dedent(
+    """
+    Care finder mode:
+    The user is asking for useful treatment options, medicines, doctors, clinics, or centers in Turkey or worldwide.
+    Be warmer and more practical than a guideline summary.
+
+    Required behavior:
+    - Do not claim you can rank doctors by success rate. Say that reliable public success-rate rankings are usually not available.
+    - Do not stop there. Give a practical shortlist strategy and concrete next steps.
+    - Separate:
+      1) If active Lyme is plausible now
+      2) If this is PTLDS/persistent symptoms after treatment
+      3) If coinfections or another diagnosis should be checked
+      4) What treatments are guideline-backed vs uncertain/experimental
+      5) How to find credible doctors/centers
+    - If Turkey or Izmir is mentioned in current or recent context, give a Turkey-first pathway:
+      university hospital or training/research hospital infectious diseases; add neurology, rheumatology, cardiology, dermatology based on symptoms.
+    - If the user asks worldwide, include examples of credible institution types and known academic Lyme/tick-borne centers as starting points, not endorsements.
+    - Known source examples you may mention as starting points:
+      CDC Lyme treatment: https://www.cdc.gov/lyme/treatment/index.html
+      NICE NG95: https://www.nice.org.uk/guidance/ng95
+      IDSA/AAN/ACR guideline: https://www.idsociety.org/practice-guideline/lyme-disease/
+      ILADS guideline page: https://www.ilads.org/patient-care/ilads-treatment-guidelines/
+      Johns Hopkins Lyme Disease Research Center: https://www.hopkinslyme.org/
+      Johns Hopkins appointment page: https://www.hopkinslyme.org/about-the-center/make-an-appointment/
+      Columbia Lyme and Tick-Borne Diseases Research Center: https://www.columbia-lyme.org/
+    - Make it feel like a helpful navigator, not a lecture.
+    - End with a concrete next message the user can send, for example: "Sehir + testler + kullandigin antibiyotik + en baskin 3 belirtiyi yaz; sana merkez/hekim arama rotasini daraltayim."
+    - Never prescribe or tell the user to start/stop/change medication.
+    """
+).strip()
+
 MODE_PROMPTS = {
     "default": BASE_PROMPT + "\n\n" + DEFAULT_RESPONSE_PROMPT,
     "symptoms": BASE_PROMPT
@@ -295,6 +328,9 @@ MODE_PROMPTS = {
     "trial": BASE_PROMPT
     + "\n\nMode: clinical trial scout. Use retrieved ClinicalTrials.gov study records when present. Summarize trial status, intervention, phase, population, eligibility caveats, and practical next steps. Do not imply efficacy from registration alone.\n\n"
     + TRIAL_CARD_PROMPT,
+    "care": BASE_PROMPT
+    + "\n\n"
+    + CARE_FINDER_PROMPT,
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
@@ -316,6 +352,7 @@ START_TEXT = dedent(
     /compare - iki kaynak/guideline/iddia karsilastirma
     /guideline - tek guideline/resmi kaynak ozeti
     /trial - ClinicalTrials.gov klinik calisma aramasi
+    /care - tedavi/hekim/merkez bulma rotasi
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -339,10 +376,11 @@ HELP_TEXT = dedent(
     /compare IDSA vs ILADS chronic Lyme treatment
     /guideline NICE Lyme disease ongoing symptoms
     /trial post-treatment Lyme disease syndrome
+    /care Turkiye Izmir Lyme tedavi hekim merkez
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. /trial ClinicalTrials.gov uzerinden klinik calisma arar.
+    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. /trial ClinicalTrials.gov uzerinden klinik calisma arar. /care tedavi/hekim/merkez arama rotasi cikarir.
     """
 ).strip()
 
@@ -368,6 +406,7 @@ COMMAND_HINTS = {
     "compare": "Neyi karsilastirayim? Ornek: IDSA vs ILADS chronic Lyme treatment",
     "guideline": "Hangi guideline/resmi kaynagi ozetleyeyim? Ornek: CDC Lyme treatment veya NICE ongoing symptoms",
     "trial": "ClinicalTrials.gov'da ne arayayim? Ornek: post-treatment Lyme disease syndrome veya Lyme vaccine",
+    "care": "Hangi ulke/sehir icin tedavi-hekim-merkez rotasi cikarayim? Ornek: Turkiye Izmir, western blot pozitif, beyin sisi, eklem agrisi, dusmeyen CRP",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -403,6 +442,32 @@ def extract_pmids(text: str) -> list[str]:
     if not pmids and re.fullmatch(r"\d{6,9}", stripped):
         pmids = [stripped]
     return list(dict.fromkeys(pmids))[:5]
+
+
+def is_care_finder_query(text: str) -> bool:
+    lowered = text.lower()
+    care_terms = (
+        "hekim",
+        "doktor",
+        "merkez",
+        "klinik",
+        "hastane",
+        "tedavi",
+        "ilaç",
+        "ilac",
+        "başarı oran",
+        "basari oran",
+        "nerede",
+        "bulur musun",
+        "dünyada",
+        "dunyada",
+        "türkiye",
+        "turkiye",
+    )
+    lyme_terms = ("lyme", "borrelia", "kene", "ptlds", "bartonella", "babesia")
+    has_care = any(term in lowered for term in care_terms)
+    has_lyme = any(term in lowered for term in lyme_terms)
+    return has_care and has_lyme
 
 
 def clean_text(value: str | None) -> str:
@@ -1042,6 +1107,10 @@ async def trial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await ask_with_trials(update, context, MODE_PROMPTS["trial"], text)
 
 
+async def care(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await mode_command(update, context, "care")
+
+
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "source")
 
@@ -1058,9 +1127,10 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not question:
         return
 
+    mode = "care" if is_care_finder_query(question) else "default"
     await ask_model(
         update,
-        MODE_PROMPTS["default"],
+        MODE_PROMPTS[mode],
         question,
         quality_repair=True,
         conversation_context=context,
@@ -1082,6 +1152,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("compare", compare))
     application.add_handler(CommandHandler("guideline", guideline))
     application.add_handler(CommandHandler("trial", trial))
+    application.add_handler(CommandHandler("care", care))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_message))
