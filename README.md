@@ -149,3 +149,12 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 ## Safety boundary
 
 LymeWire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
+
+
+## LymeWire Brand Direction
+
+Core idea: **Find the signal.**
+
+LymeWire connects patient story, evidence, and clinician conversation through focused product wires: Care Wire, Research Wire, Treatment Wire, Guideline Wire, Trial Wire, Doctor Brief Wire, and Calm Wire.
+
+Preferred logo direction: a minimal continuous-line L/W wire mark with three nodes representing patient, evidence, and clinician. It should work as an app icon and as a one-color tattoo.
