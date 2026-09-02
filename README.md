@@ -22,6 +22,11 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 - `/safety` for emergency warning boundaries.
 
 
+
+### Conversation continuity
+
+The bot keeps a short rolling Telegram context in memory for each chat. This lets it understand follow-ups like “yazdım üstte var”, “dedim ya”, or “devam et” without making the user repeat symptoms, test history, or prior answers. This is runtime chat context, not a durable medical record.
+
 ### Answer quality layer
 
 The bot is tuned to avoid bland, generic medical replies. Ordinary Lyme/tick-borne illness answers should now follow the MVP quality bar:
