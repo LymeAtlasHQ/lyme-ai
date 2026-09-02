@@ -6,6 +6,10 @@ AI systems for evidence-based Lyme disease research and knowledge management.
 
 Public-facing name: **LymeWire**
 
+Primary slogan: **Find the signal.**
+
+Turkish companion line: **Sinyali bul. Belirsizligi azalt.**
+
 Short description:
 
 > Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber.
