@@ -34,6 +34,8 @@ The bot is tuned to avoid bland, generic medical replies. Ordinary Lyme/tick-bor
 
 If a draft answer is too short or exits with a generic “ask a doctor” style response, the bot runs a quality repair pass before sending it. The repair pass must stay safe: no diagnosis, no prescribing, no invented sources, and no fake certainty.
 
+For evidence-heavy normal-chat questions, the bot should now label the answer as general AI context and suggest one exact command for a retrieved-source card, such as `/research`, `/treatment`, `/compare`, `/guideline`, or `/trial`.
+
 ### Evidence Card format
 
 For `/paper`, `/research`, and `/treatment`, the bot tries to retrieve PubMed records and answer with an Evidence Card structure. `/compare` uses a related Comparison Card structure:
