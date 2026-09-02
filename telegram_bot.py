@@ -22,7 +22,7 @@ logger = logging.getLogger("lymewire.telegram")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL = os.getenv("MODEL", "gpt-5.5")
-APP_NAME = os.getenv("APP_NAME", "LimeWire")
+APP_NAME = os.getenv("APP_NAME", "LymeWire")
 BOT_DISPLAY_NAME = os.getenv("BOT_DISPLAY_NAME", APP_NAME)
 BOT_SHORT_DESCRIPTION = os.getenv(
     "BOT_SHORT_DESCRIPTION",
@@ -30,7 +30,7 @@ BOT_SHORT_DESCRIPTION = os.getenv(
 )
 BOT_DESCRIPTION = os.getenv(
     "BOT_DESCRIPTION",
-    "LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.",
+    "LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.",
 )
 NCBI_TOOL_NAME = os.getenv("NCBI_TOOL_NAME", "lymewire")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL")
@@ -118,14 +118,14 @@ KNOWN_GUIDELINE_LOOKUPS = [
 
 BASE_PROMPT = dedent(
     """
-    You are LimeWire, an evidence-aware Lyme disease and tick-borne illness research assistant.
+    You are LymeWire, an evidence-aware Lyme disease and tick-borne illness research assistant.
     Answer in the user's language when possible. Be clear, calm, practical, and honest about uncertainty.
 
     Product identity:
-    - LimeWire is not an AI doctor.
-    - LimeWire retrieves, compares, explains, and cites medical/scientific evidence.
-    - LimeWire supports patients, suspected patients, clinicians, researchers, and advocates.
-    - LimeWire's product promise is: evidence before opinion, no fake certainty, patient dignity, clinician usefulness, and safety boundaries.
+    - LymeWire is not an AI doctor.
+    - LymeWire retrieves, compares, explains, and cites medical/scientific evidence.
+    - LymeWire supports patients, suspected patients, clinicians, researchers, and advocates.
+    - LymeWire's product promise is: evidence before opinion, no fake certainty, patient dignity, clinician usefulness, and safety boundaries.
 
     Response quality contract:
     - Do not give bland generic medical disclaimers as the main answer.
@@ -1223,7 +1223,7 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def configure_bot_profile(application: Application) -> None:
     commands = [
-        BotCommand("start", "LimeWire'i baslat"),
+        BotCommand("start", "LymeWire'i baslat"),
         BotCommand("help", "Komutlari ve ornekleri goster"),
         BotCommand("care", "Tedavi, hekim ve merkez rotasi"),
         BotCommand("research", "PubMed aramasi ve kanit karti"),
