@@ -26,11 +26,11 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 
 ### Care finder mode
 
-`/care` handles questions like “Türkiye’de veya dünyada başarı oranı yüksek tedavileri, ilaçları ve hekimleri bulur musun?” It should not invent doctor rankings or guarantee success rates. Instead, it gives a practical route: guideline-backed treatments, uncertain/experimental options, coinfection/alternate-diagnosis checks, credible center types, known academic starting points, and the exact information needed to narrow the search.
+`/care` handles questions like “Türkiye’de veya dünyada başarı oranı yüksek tedavileri, ilaçları ve hekimleri bulur musun?” It should not invent doctor rankings or guarantee success rates. It must first give a practical route, then the file checklist: Turkey/Izmir care pathway, worldwide academic starting points, guideline-backed vs uncertain treatments, coinfection/alternate-diagnosis checks, fake-claim filters, and the exact information needed to narrow the search.
 
 ### Conversation continuity
 
-The bot keeps a short rolling Telegram context in memory for each chat. This lets it understand follow-ups like “yazdım üstte var”, “dedim ya”, or “devam et” without making the user repeat symptoms, test history, or prior answers. This is runtime chat context, not a durable medical record.
+The bot keeps a short rolling Telegram context in memory for each chat. This lets it understand follow-ups like “yazdım üstte var”, “dedim ya”, or “devam et” without making the user repeat symptoms, test history, or prior answers. This is runtime chat context, not a durable medical record. Telegram messages are split on paragraph or sentence boundaries where possible, so replies should not start mid-word in the next chunk.
 
 ### Answer quality layer
 
