@@ -276,30 +276,35 @@ CARE_FINDER_PROMPT = dedent(
     """
     Care finder mode:
     The user is asking for useful treatment options, medicines, doctors, clinics, or centers in Turkey or worldwide.
-    Be warmer and more practical than a guideline summary.
+    Be warm, direct, and practical. Sound like a helpful navigator, not a hospital brochure.
 
-    Required behavior:
-    - Do not claim you can rank doctors by success rate. Say that reliable public success-rate rankings are usually not available.
-    - Do not stop there. Give a practical shortlist strategy and concrete next steps.
-    - Separate:
-      1) If active Lyme is plausible now
-      2) If this is PTLDS/persistent symptoms after treatment
-      3) If coinfections or another diagnosis should be checked
-      4) What treatments are guideline-backed vs uncertain/experimental
-      5) How to find credible doctors/centers
-    - If Turkey or Izmir is mentioned in current or recent context, give a Turkey-first pathway:
-      university hospital or training/research hospital infectious diseases; add neurology, rheumatology, cardiology, dermatology based on symptoms.
-    - If the user asks worldwide, include examples of credible institution types and known academic Lyme/tick-borne centers as starting points, not endorsements.
-    - Known source examples you may mention as starting points:
-      CDC Lyme treatment: https://www.cdc.gov/lyme/treatment/index.html
-      NICE NG95: https://www.nice.org.uk/guidance/ng95
-      IDSA/AAN/ACR guideline: https://www.idsociety.org/practice-guideline/lyme-disease/
-      ILADS guideline page: https://www.ilads.org/patient-care/ilads-treatment-guidelines/
-      Johns Hopkins Lyme Disease Research Center: https://www.hopkinslyme.org/
-      Johns Hopkins appointment page: https://www.hopkinslyme.org/about-the-center/make-an-appointment/
-      Columbia Lyme and Tick-Borne Diseases Research Center: https://www.columbia-lyme.org/
-    - Make it feel like a helpful navigator, not a lecture.
-    - End with a concrete next message the user can send, for example: "Sehir + testler + kullandigin antibiyotik + en baskin 3 belirtiyi yaz; sana merkez/hekim arama rotasini daraltayim."
+    Critical output rules:
+    - Do not begin with a file checklist. First give the route.
+    - Do not answer only with departments. The user asked for treatment/doctor/center navigation.
+    - Do not claim you can rank doctors by success rate. Say reliable public success-rate rankings are usually not available, then continue with a useful route.
+    - Do not ask the user to repeat information already present in current or recent context.
+    - Use the user's city/country and known symptoms when available.
+    - Keep it compact enough for Telegram.
+
+    Use this exact structure when the user writes Turkish:
+    Kisa cevap
+    Senin durumunda ilk rota
+    Turkiye'de nereye bakilir
+    Dunyada bakilabilecek merkez tipleri
+    Tedavi haritasi
+    Kirmizi bayraklar ve sahte vaat filtresi
+    Goturulecek dosya
+    Bana sunu yaz, rotayi daraltayim
+
+    Content expectations:
+    - For Turkey/Izmir, suggest a Turkey-first pathway: university hospital or training/research hospital Infectious Diseases; add Rheumatology for persistent CRP/joint symptoms, Neurology for brain fog/focal neurologic symptoms, Cardiology for palpitations/fainting, Dermatology for rash.
+    - For Izmir specifically, it is acceptable to mention checking university-hospital routes such as Ege University and Dokuz Eylul, plus MHRS/large training-research hospital infectious diseases clinics, phrased as starting points to verify rather than guaranteed Lyme specialists.
+    - For worldwide searches, include credible academic/research starting points, not endorsements or rankings: Johns Hopkins Lyme Disease Research Center and Columbia Lyme and Tick-Borne Diseases Research Center.
+    - For treatment, separate: guideline-backed active Lyme treatment, PTLDS/persistent-symptom care, coinfection evaluation, and experimental/uncertain approaches.
+    - Say that early objectively diagnosed Lyme generally responds well to standard antibiotics, while prolonged antibiotics for PTLDS have not shown consistent benefit and carry risks.
+    - If the user has long antibiotic exposure, emphasize reassessment before more antibiotics: objective active signs, coinfections, inflammatory/autoimmune causes, endocrine/nutritional/sleep/dysautonomia causes, medication effects.
+    - Include practical search terms: "Enfeksiyon Hastaliklari Lyme Borrelia", "tick-borne disease clinic", "Lyme disease research center", "neuroborreliosis clinic".
+    - End with a concrete next message the user can send, but only after giving the route.
     - Never prescribe or tell the user to start/stop/change medication.
     """
 ).strip()
@@ -842,12 +847,40 @@ def needs_quality_repair(answer: str, evidence_card: bool = False) -> bool:
     return has_generic_exit and not has_useful_structure
 
 
+def split_telegram_chunks(text: str, max_size: int = MAX_TELEGRAM_MESSAGE) -> list[str]:
+    clean = text.strip() or "Cevap uretilemedi. Biraz daha detay yazar misin?"
+    if len(clean) <= max_size:
+        return [clean]
+
+    chunks = []
+    remaining = clean
+    while len(remaining) > max_size:
+        window = remaining[:max_size]
+        split_points = [
+            window.rfind("\n\n"),
+            window.rfind("\n"),
+            window.rfind(". "),
+            window.rfind("; "),
+            window.rfind(", "),
+            window.rfind(" "),
+        ]
+        split_at = max(split_points)
+        if split_at < int(max_size * 0.55):
+            split_at = max_size
+        chunk = remaining[:split_at].strip()
+        if chunk:
+            chunks.append(chunk)
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
 async def send_chunks(update: Update, text: str) -> None:
     if not update.message:
         return
-    clean = text.strip() or "Cevap uretilemedi. Biraz daha detay yazar misin?"
-    for start in range(0, len(clean), MAX_TELEGRAM_MESSAGE):
-        await update.message.reply_text(clean[start : start + MAX_TELEGRAM_MESSAGE])
+    for chunk in split_telegram_chunks(text):
+        await update.message.reply_text(chunk)
 
 
 async def ask_model(
