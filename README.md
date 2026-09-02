@@ -21,6 +21,19 @@ The Lymewire Telegram bot entrypoint is `telegram_bot.py`.
 - `/calm` for anxiety/panic-safe support.
 - `/safety` for emergency warning boundaries.
 
+
+### Answer quality layer
+
+The bot is tuned to avoid bland, generic medical replies. Ordinary Lyme/tick-borne illness answers should now follow the MVP quality bar:
+
+- Kisa cevap
+- Kanit ve belirsizlik
+- Ne takip edilmeli
+- Doktora sorulacak iyi sorular
+- Guvenlik / aciliyet
+
+If a draft answer is too short or exits with a generic “ask a doctor” style response, the bot runs a quality repair pass before sending it. The repair pass must stay safe: no diagnosis, no prescribing, no invented sources, and no fake certainty.
+
 ### Evidence Card format
 
 For `/paper`, `/research`, and `/treatment`, the bot tries to retrieve PubMed records and answer with an Evidence Card structure. `/compare` uses a related Comparison Card structure:
