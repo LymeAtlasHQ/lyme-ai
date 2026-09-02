@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">LimeWire logo</title>
+  <desc id="desc">A lime green neural wire mark forming an L and W monogram for LimeWire.</desc>
+  <defs>
+    <linearGradient id="limewire-gradient" x1="164" y1="142" x2="884" y2="882" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D7FF4A"/>
+      <stop offset="0.46" stop-color="#61E786"/>
+      <stop offset="1" stop-color="#00B37E"/>
+    </linearGradient>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#073B2C" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="#071512"/>
+  <circle cx="512" cy="512" r="384" fill="#0B211B"/>
+  <path d="M292 252v430c0 52 42 94 94 94h110" fill="none" stroke="url(#limewire-gradient)" stroke-width="86" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-shadow)"/>
+  <path d="M428 384l118 292 110-232 110 232 82-292" fill="none" stroke="url(#limewire-gradient)" stroke-width="76" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-shadow)"/>
+  <circle cx="292" cy="252" r="42" fill="#D7FF4A"/>
+  <circle cx="428" cy="384" r="34" fill="#8BFF75"/>
+  <circle cx="848" cy="384" r="34" fill="#61E786"/>
+  <circle cx="766" cy="676" r="34" fill="#00D98E"/>
+</svg>
