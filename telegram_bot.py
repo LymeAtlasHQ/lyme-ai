@@ -26,6 +26,8 @@ APP_NAME = os.getenv("APP_NAME", "Lymewire")
 NCBI_TOOL_NAME = os.getenv("NCBI_TOOL_NAME", "lymewire")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL")
 MAX_TELEGRAM_MESSAGE = 3900
+MAX_CHAT_HISTORY_MESSAGES = int(os.getenv("MAX_CHAT_HISTORY_MESSAGES", "8"))
+MAX_CHAT_HISTORY_CHARS = int(os.getenv("MAX_CHAT_HISTORY_CHARS", "900"))
 PUBMED_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 CLINICALTRIALS_SEARCH_URL = "https://clinicaltrials.gov/api/v2/studies"
@@ -120,6 +122,8 @@ BASE_PROMPT = dedent(
     - Do not give bland generic medical disclaimers as the main answer.
     - Start with the most useful direct answer, then explain evidence and uncertainty.
     - Make the answer usable for a patient: what to track, what to ask, what would change urgency.
+    - Use recent Telegram context when it is provided; do not ask users to repeat details already visible in recent context.
+    - If the user says "I wrote it above", "dedim ya", "ustte var", or similar, look back at recent context and continue from there.
     - Separate established guidance, limited evidence, hypotheses, anecdotes, and unsupported claims.
     - Name the evidence type when possible: guideline, systematic review, randomized trial, pilot trial, case report, animal/in-vitro, anecdote.
     - Make certainty visible with short labels such as higher confidence, mixed/uncertain, or weak evidence.
@@ -132,6 +136,7 @@ BASE_PROMPT = dedent(
     - Do not diagnose, prescribe, change medication, or replace urgent care.
     - Encourage qualified clinicians for diagnosis and treatment decisions.
     - For emergency symptoms, advise urgent local medical help immediately.
+    - If the user expresses fear like "I feel like I will die" but does not mention self-harm or emergency red flags, respond warmly first, then ask about immediate red flags without overwhelming them.
     - For dosing, interactions, pregnancy, children, severe symptoms, or self-harm, use extra caution.
     - Use neutral wording such as "a clinician experienced with Lyme/tick-borne disease".
     - Never use the phrase "Lyme-literate".
@@ -152,6 +157,7 @@ DEFAULT_RESPONSE_PROMPT = dedent(
     - Keep each section short but substantive.
     - If the user writes Turkish, use Turkish headings and a warm, direct tone.
     - For evidence-heavy questions, explicitly say when the current reply is a general AI answer rather than a retrieved-source card.
+    - When recent Telegram context is included, use it to resolve pronouns and follow-ups. Do not say you can only see the last message.
     - End evidence-heavy answers with one short "Kaynakli derinlestirme" line that suggests the best exact command.
     - Prefer specific command suggestions, for example:
       /research post-treatment Lyme disease syndrome randomized trial
@@ -292,7 +298,7 @@ MODE_PROMPTS = {
     "source": BASE_PROMPT
     + "\n\nMode: source-aware answer. Separate established evidence from uncertain or controversial claims. Mention source types users should verify, such as CDC, ECDC, NICE, peer-reviewed reviews, NIH trials, IDSA, ILADS, or local guidelines. Do not invent URLs.",
     "calm": BASE_PROMPT
-    + "\n\nMode: anxiety support. Use a grounding, non-alarming tone. First check for emergency red flags, then give a short breathing/grounding step and one practical next action. Avoid spiraling possibilities.",
+    + "\n\nMode: anxiety support. Sound human, warm, and not clinical. If the user says they feel like they will die, first validate the fear in one sentence, then ask about immediate red flags. Do not assume self-harm unless they mention wanting to harm themselves or not being safe. Give one grounding step and one practical next action. Avoid spiraling possibilities.",
 }
 
 START_TEXT = dedent(
@@ -403,6 +409,44 @@ def clean_text(value: str | None) -> str:
     if not value:
         return ""
     return " ".join(value.split())
+
+
+def remember_chat_message(context: ContextTypes.DEFAULT_TYPE, role: str, content: str) -> None:
+    text = clean_text(content)
+    if not text:
+        return
+    history = context.chat_data.setdefault("history", [])
+    history.append({"role": role, "content": text[:MAX_CHAT_HISTORY_CHARS]})
+    if len(history) > MAX_CHAT_HISTORY_MESSAGES:
+        del history[:-MAX_CHAT_HISTORY_MESSAGES]
+
+
+def recent_chat_context(context: ContextTypes.DEFAULT_TYPE) -> str:
+    history = context.chat_data.get("history", [])
+    if not history:
+        return ""
+    lines = []
+    for item in history[-MAX_CHAT_HISTORY_MESSAGES:]:
+        role = "User" if item.get("role") == "user" else "Assistant"
+        lines.append(f"{role}: {item.get('content', '')}")
+    return "\n".join(lines)
+
+
+def with_recent_context(context: ContextTypes.DEFAULT_TYPE | None, user_text: str) -> str:
+    if context is None:
+        return user_text
+    history = recent_chat_context(context)
+    if not history:
+        return user_text
+    return dedent(
+        f"""
+        Recent Telegram context:
+        {history}
+
+        Current user message:
+        {user_text}
+        """
+    ).strip()
 
 
 def element_text(element: ET.Element | None) -> str:
@@ -747,18 +791,21 @@ async def ask_model(
     user_text: str,
     evidence_card: bool = False,
     quality_repair: bool = True,
+    conversation_context: ContextTypes.DEFAULT_TYPE | None = None,
+    memory_user_text: str | None = None,
 ) -> None:
     if not update.message:
         return
 
     await update.message.chat.send_action(action=ChatAction.TYPING)
+    contextual_user_text = with_recent_context(conversation_context, user_text)
 
     try:
         response = client.responses.create(
             model=MODEL,
             input=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": user_text},
+                {"role": "user", "content": contextual_user_text},
             ],
         )
         answer = normalize_answer(response.output_text, evidence_card=evidence_card)
@@ -772,8 +819,8 @@ async def ask_model(
                         "role": "user",
                         "content": dedent(
                             f"""
-                            Original user request:
-                            {user_text}
+                            Original user request with recent context:
+                            {contextual_user_text}
 
                             Draft answer that needs improvement:
                             {answer}
@@ -789,11 +836,16 @@ async def ask_model(
         logger.exception("Telegram answer failed")
         answer = "Su an cevap uretirken sorun yasadim. Birazdan tekrar dener misin?"
 
+    if conversation_context is not None:
+        remember_chat_message(conversation_context, "user", memory_user_text or user_text)
+        remember_chat_message(conversation_context, "assistant", answer)
+
     await send_chunks(update, answer)
 
 
 async def ask_with_pubmed(
     update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
     prompt: str,
     user_text: str,
     mode_label: str,
@@ -828,7 +880,14 @@ async def ask_with_pubmed(
             The final answer must start with the exact line "Bottom line" and follow the Evidence Card heading order from the system instructions.
             """
         ).strip()
-        await ask_model(update, prompt, enriched, evidence_card=True)
+        await ask_model(
+            update,
+            prompt,
+            enriched,
+            evidence_card=True,
+            conversation_context=context,
+            memory_user_text=user_text,
+        )
     except Exception:
         logger.exception("PubMed retrieval failed")
         fallback = dedent(
@@ -841,7 +900,7 @@ async def ask_with_pubmed(
         await send_chunks(update, fallback)
 
 
-async def ask_with_trials(update: Update, prompt: str, user_text: str) -> None:
+async def ask_with_trials(update: Update, context: ContextTypes.DEFAULT_TYPE, prompt: str, user_text: str) -> None:
     if not update.message:
         return
 
@@ -866,7 +925,14 @@ async def ask_with_trials(update: Update, prompt: str, user_text: str) -> None:
             The final answer must start with the exact line "Bottom line" and follow the Trial Card heading order from the system instructions.
             """
         ).strip()
-        await ask_model(update, prompt, enriched, evidence_card=True)
+        await ask_model(
+            update,
+            prompt,
+            enriched,
+            evidence_card=True,
+            conversation_context=context,
+            memory_user_text=user_text,
+        )
     except Exception:
         logger.exception("ClinicalTrials.gov retrieval failed")
         fallback = dedent(
@@ -896,7 +962,14 @@ async def mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE, mode:
     if not text:
         await send_chunks(update, COMMAND_HINTS[mode])
         return
-    await ask_model(update, MODE_PROMPTS[mode], text, quality_repair=(mode != "calm"))
+    await ask_model(
+        update,
+        MODE_PROMPTS[mode],
+        text,
+        quality_repair=(mode != "calm"),
+        conversation_context=context,
+        memory_user_text=f"/{mode} {text}",
+    )
 
 
 async def symptoms(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -912,7 +985,7 @@ async def paper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text:
         await send_chunks(update, COMMAND_HINTS["paper"])
         return
-    await ask_with_pubmed(update, MODE_PROMPTS["paper"], text, "paper/article analysis")
+    await ask_with_pubmed(update, context, MODE_PROMPTS["paper"], text, "paper/article analysis")
 
 
 async def research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -920,7 +993,7 @@ async def research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text:
         await send_chunks(update, COMMAND_HINTS["research"])
         return
-    await ask_with_pubmed(update, MODE_PROMPTS["research"], text, "research scout summary")
+    await ask_with_pubmed(update, context, MODE_PROMPTS["research"], text, "research scout summary")
 
 
 async def treatment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -928,7 +1001,7 @@ async def treatment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text:
         await send_chunks(update, COMMAND_HINTS["treatment"])
         return
-    await ask_with_pubmed(update, MODE_PROMPTS["treatment"], text, "treatment evidence review")
+    await ask_with_pubmed(update, context, MODE_PROMPTS["treatment"], text, "treatment evidence review")
 
 
 async def compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -938,6 +1011,7 @@ async def compare(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     await ask_with_pubmed(
         update,
+        context,
         MODE_PROMPTS["compare"],
         text,
         "source/guideline comparison",
@@ -952,6 +1026,7 @@ async def guideline(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     await ask_with_pubmed(
         update,
+        context,
         MODE_PROMPTS["guideline"],
         text,
         "guideline/source card",
@@ -964,7 +1039,7 @@ async def trial(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not text:
         await send_chunks(update, COMMAND_HINTS["trial"])
         return
-    await ask_with_trials(update, MODE_PROMPTS["trial"], text)
+    await ask_with_trials(update, context, MODE_PROMPTS["trial"], text)
 
 
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -983,7 +1058,14 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not question:
         return
 
-    await ask_model(update, MODE_PROMPTS["default"], question, quality_repair=True)
+    await ask_model(
+        update,
+        MODE_PROMPTS["default"],
+        question,
+        quality_repair=True,
+        conversation_context=context,
+        memory_user_text=question,
+    )
 
 
 def build_application() -> Application:
