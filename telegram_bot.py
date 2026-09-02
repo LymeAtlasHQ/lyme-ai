@@ -284,7 +284,9 @@ CARE_FINDER_PROMPT = dedent(
     - Do not claim you can rank doctors by success rate. Say reliable public success-rate rankings are usually not available, then continue with a useful route.
     - Do not ask the user to repeat information already present in current or recent context.
     - Use the user's city/country and known symptoms when available.
-    - Keep it compact enough for Telegram. Prefer fewer, sharper bullets over long exhaustive lists.
+    - Keep it compact enough for Telegram. Target 900-1400 words maximum; shorter is better.
+    - Prefer fewer, sharper bullets over long exhaustive lists.
+    - Never repeat the same heading sequence or restart the answer mid-reply.
     - Start with a human sentence that acknowledges the user's situation, then move into the route.
     - Give the user the next 3 actions clearly before longer caveats.
     - Avoid sounding like a generic hospital referral page.
@@ -301,7 +303,7 @@ CARE_FINDER_PROMPT = dedent(
     Bana sunu yaz, rotayi daraltayim
 
     Content expectations:
-    - For Turkey/Izmir, suggest a Turkey-first pathway: university hospital or training/research hospital Infectious Diseases; add Rheumatology for persistent CRP/joint symptoms, Neurology for brain fog/focal neurologic symptoms, Cardiology for palpitations/fainting, Dermatology for rash.
+    - For Turkey/Izmir, suggest a Turkey-first pathway: university hospital or training/research hospital Infectious Diseases; add Rheumatology for persistent CRP/joint symptoms, Neurology for brain fog/focal neurologic symptoms, Cardiology for palpitations/fainting, Dermatology for rash. Keep this to 4-6 bullets.
     - For Izmir specifically, it is acceptable to mention checking university-hospital routes such as Ege University and Dokuz Eylul, plus MHRS/large training-research hospital infectious diseases clinics, phrased as starting points to verify rather than guaranteed Lyme specialists.
     - For worldwide searches, include credible academic/research starting points, not endorsements or rankings: Johns Hopkins Lyme Disease Research Center and Columbia Lyme and Tick-Borne Diseases Research Center. If you name a center, include its URL.
     - For treatment, separate: guideline-backed active Lyme treatment, PTLDS/persistent-symptom care, coinfection evaluation, and experimental/uncertain approaches. Keep this section concise.
@@ -312,6 +314,7 @@ CARE_FINDER_PROMPT = dedent(
     - For Turkey, mention MHRS, university hospital appointment systems, and hospital patient services as practical routes; do not imply you have checked current appointment availability.
     - If the user asks for a found list and live web lookup is unavailable inside Telegram, explain that the bot can prepare the search route and keywords, while a live web search should verify current doctors/appointments.
     - End with a concrete next message the user can send, but only after giving the route. Ask for no more than 5 missing data points.
+    - If the answer is becoming long, shorten the checklist instead of repeating earlier sections.
     - Never prescribe or tell the user to start/stop/change medication.
     """
 ).strip()
@@ -803,6 +806,36 @@ async def build_trial_context(query: str, limit: int = 5) -> tuple[str, list[str
     ]
 
 
+def collapse_repeated_heading_restart(text: str) -> str:
+    markers = (
+        "## Kisa cevap",
+        "## Kısa cevap",
+        "Kisa cevap",
+        "Kısa cevap",
+        "Bottom line",
+    )
+    for marker in markers:
+        first = text.find(marker)
+        if first < 0:
+            continue
+        second = text.find(marker, first + len(marker))
+        if second < 0:
+            continue
+
+        prefix = text[:second].strip()
+        suffix = text[second:].strip()
+
+        prefix_headings = re.findall(r"(?m)^#{0,3}\s*[^\n]{3,80}$", prefix)
+        suffix_headings = re.findall(r"(?m)^#{0,3}\s*[^\n]{3,80}$", suffix)
+        if len(prefix_headings) >= 3 and len(suffix_headings) >= 3:
+            return suffix
+
+        overlap = min(len(prefix), len(suffix), 2400)
+        if overlap > 400 and prefix[-overlap:] == suffix[:overlap]:
+            return (prefix + suffix[overlap:]).strip()
+    return text
+
+
 def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = answer.strip()
     normalized = re.sub(r"(?i)Lyme-literate", "clinician experienced with Lyme/tick-borne disease", normalized)
@@ -812,6 +845,7 @@ def normalize_answer(answer: str, evidence_card: bool = False) -> str:
     normalized = normalized.replace("This is not medical advice.", "")
     normalized = normalized.replace("Bu tıbbi tavsiye değildir.", "")
     normalized = normalized.replace("Bu tibbi tavsiye degildir.", "")
+    normalized = collapse_repeated_heading_restart(normalized)
     if evidence_card and not re.match(r"(?i)^#{0,3}\s*Bottom line\b", normalized):
         normalized = "Bottom line\n\n" + normalized
     return normalized.strip()
