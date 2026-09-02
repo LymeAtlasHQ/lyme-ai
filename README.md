@@ -1,10 +1,10 @@
-# LimeWire AI
+# LymeWire AI
 
 AI systems for evidence-based Lyme disease research and knowledge management.
 
 ## Brand surfaces
 
-Public-facing name: **LimeWire**
+Public-facing name: **LymeWire**
 
 Short description:
 
@@ -12,7 +12,7 @@ Short description:
 
 Long description:
 
-> LimeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
+> LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
 
 Logo source: `brand/logo.svg`
 
@@ -20,7 +20,7 @@ Telegram bot profile name, short description, long description, and command menu
 
 ## Telegram bot
 
-The LimeWire Telegram bot entrypoint is `telegram_bot.py`.
+The LymeWire Telegram bot entrypoint is `telegram_bot.py`.
 
 ### Current capabilities
 
@@ -84,7 +84,7 @@ Known IDSA/ILADS comparison queries are seeded with the IDSA/AAN/ACR 2020 guidel
 OPENAI_API_KEY=your_openai_api_key_here
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 MODEL=gpt-5.5
-APP_NAME=LimeWire
+APP_NAME=LymeWire
 ```
 
 Optional NCBI/PubMed metadata:
@@ -98,7 +98,7 @@ Create the Telegram token with BotFather:
 
 1. Open Telegram and message `@BotFather`.
 2. Run `/newbot`.
-3. Pick a display name, for example `LimeWire`.
+3. Pick a display name, for example `LymeWire`.
 4. Pick a username ending in `bot`, for example `lymewire_ai_bot` if available.
 5. Copy the token into `TELEGRAM_BOT_TOKEN` in Railway or your local `.env` file.
 
@@ -144,4 +144,4 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 
 ## Safety boundary
 
-LimeWire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
+LymeWire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
