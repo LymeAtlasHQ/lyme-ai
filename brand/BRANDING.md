@@ -28,3 +28,24 @@ LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, kl
 Primary logo source: `brand/logo.svg`
 
 Use a dark square background with a lime green neural-wire L/W monogram. The mark should feel like medical evidence plus network intelligence, not a generic hospital logo.
+
+
+## Slogan
+
+Primary slogan:
+Find the signal.
+
+Turkish companion line:
+Sinyali bul. Belirsizligi azalt.
+
+Why this works:
+- LymeWire helps people find signal inside medical noise, fear, conflicting guidelines, and scattered research.
+- It is short enough for an app tagline, website hero, sticker, or tattoo.
+- It does not overpromise cure, diagnosis, or certainty.
+
+Alternative slogan candidates:
+- Evidence through the fog.
+- Less noise. More evidence.
+- Connect symptoms to evidence.
+- Where Lyme evidence connects.
+- Clarity for the Lyme maze.
