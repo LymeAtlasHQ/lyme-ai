@@ -25,11 +25,23 @@ LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, kl
 
 ## Logo Status
 
+Status: selected for app-first V1.
+
 Primary editable logo source: `brand/logo.svg`
 
-Logo is not fully locked yet. Do not treat generated explorations as final until the selected mark is confirmed.
+Selected direction:
 
-The final logo must work in these places:
+- simple `LW` monogram,
+- rounded dark graphite app tile,
+- lime green main stroke,
+- mint endpoint node,
+- minimal depth,
+- no medical cross,
+- no realistic tick,
+- no DNA clutter,
+- no fear-based disease imagery.
+
+This mark is intended for:
 
 - iOS app icon,
 - Android adaptive icon,
@@ -38,26 +50,6 @@ The final logo must work in these places:
 - Railway service/project identity,
 - website favicon,
 - future social and merch use.
-
-## Current Logo Direction
-
-The strongest practical direction is app-first and simple:
-
-- dark graphite background,
-- lime/mint LymeWire mark,
-- bold silhouette,
-- minimal detail,
-- readable at 32px,
-- no fake medical authority symbols.
-
-Explored motifs:
-
-- minimal L/W wire mark,
-- DNA / Borrelia-like spiral signal,
-- tick containment mark,
-- barbed-wire signal ring.
-
-The tick/barbed-wire idea can be used only if it is abstract and clean enough. Avoid a realistic tick, horror imagery, or anything that feels like a warning sign instead of a trusted app.
 
 ## Slogan
 
