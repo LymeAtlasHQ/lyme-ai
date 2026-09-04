@@ -22,6 +22,7 @@ devami var
 
 Expected behavior:
 
+- The first context-only message gets a short acknowledgement, not a full medical report.
 - Use Izmir/Aliaga, Western blot, CRP, brain fog, joint pain, and prior antibiotics without asking again.
 - Acknowledge that the previous tone did not work, then become shorter and more direct.
 - Give a Turkey-first route before caveats.
