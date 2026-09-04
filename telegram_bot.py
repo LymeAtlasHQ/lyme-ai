@@ -654,7 +654,7 @@ def build_care_navigation_answer(context: ContextTypes.DEFAULT_TYPE, user_text: 
     known_line = ", ".join(known_bits)
 
     intro = (
-        f"Sende bildiğim bağlam: {known_line}. "
+        f"Şu an sende bildiğim tablo: {known_line}. "
         if known_bits
         else ""
     )
@@ -668,45 +668,45 @@ def build_care_navigation_answer(context: ContextTypes.DEFAULT_TYPE, user_text: 
         missing.append("eklemde gerçek şişlik var mı")
     missing_line = ""
     if missing:
-        missing_line = "\n\nDaraltmak için sonra sadece şunu at: " + ", ".join(missing[:3]) + "."
+        missing_line = "\n\nBunu daha keskinleştirmek için sonra sadece şunu at: " + ", ".join(missing[:3]) + "."
 
     if izmir_context:
         turkey_route = (
-            "1. Izmir: Ege Uni, Dokuz Eylul veya Izmir Sehir Hastanesi icin Enfeksiyon + Romatoloji hattini ara.\n"
-            "2. Izmir yetmezse: Hacettepe, Ankara Uni, Capa/Cerrahpasa gibi akademik merkezlerde ikinci gorus bak.\n"
-            "3. Dunya: Johns Hopkins, Columbia ve Stony Brook Lyme/tick-borne merkezlerini randevu/ikinci gorus icin kontrol et."
+            "1. İzmir: Ege Üniversitesi, Dokuz Eylül veya İzmir Şehir Hastanesi için Enfeksiyon + Romatoloji hattını ara.\n"
+            "2. İzmir yetmezse: Hacettepe, Ankara Üniversitesi, Çapa/Cerrahpaşa gibi akademik merkezlerden ikinci görüş bak.\n"
+            "3. Dünya: Johns Hopkins, Columbia ve Stony Brook gibi Lyme/tick-borne merkezlerini randevu veya ikinci görüş için kontrol et."
         )
     else:
         turkey_route = (
-            "1. Bulundugun sehirde universiteler veya egitim-arastirma hastanelerinde Enfeksiyon + Romatoloji hattini ara.\n"
-            "2. Turkiye ust basamak: Hacettepe, Ankara Uni, Capa/Cerrahpasa.\n"
-            "3. Dunya: Johns Hopkins, Columbia ve Stony Brook Lyme/tick-borne merkezleri."
+            "1. Bulunduğun şehirde üniversite veya eğitim-araştırma hastanelerinde Enfeksiyon + Romatoloji hattını ara.\n"
+            "2. Türkiye üst basamak: Hacettepe, Ankara Üniversitesi, Çapa/Cerrahpaşa.\n"
+            "3. Dünya: Johns Hopkins, Columbia ve Stony Brook Lyme/tick-borne merkezleri."
         )
 
     antibiotic_note = (
-        "Aylarca antibiyotik kullanimindan sonra hedef 'daha guclu antibiyotik' degil; aktif Lyme, PTLDS, ko-enfeksiyon veya baska inflamasyon kaynagini ayirmak."
+        "Aylarca antibiyotik kullanımından sonra hedef 'daha güçlü antibiyotik' aramak değil; aktif Lyme, PTLDS, ko-enfeksiyon veya başka inflamasyon kaynağını ayırmak."
         if long_antibiotic_context
-        else "Hedef, once aktif Lyme mi, PTLDS mi, ko-enfeksiyon mu yoksa baska inflamasyon mu ayirmak."
+        else "Hedef önce aktif Lyme mı, PTLDS mi, ko-enfeksiyon mu yoksa başka inflamasyon mu ayırmak."
     )
 
     answer = dedent(
         f"""
-        Kisa rota
-        {intro}Basari orani diye guvenilir doktor siralamasi yok; bu yuzden reklam degil, ayirici tani yapabilen merkez arayacagiz. {antibiotic_note}
+        Kısa rota
+        {intro}"Başarı oranı yüksek doktor" diye güvenilir bir Lyme sıralaması yok. O yüzden reklamı güçlü yer değil, ayırıcı tanı yapabilen merkez arayacağız. {antibiotic_note}
 
-        Bugun bakilacak yerler
+        Bugün bakılacak yerler
         {turkey_route}
 
         Link/arama hedefleri
         - Johns Hopkins: https://www.hopkinslyme.org/
         - Columbia: https://www.columbia-lyme.org/
-        - Arama: "Enfeksiyon Hastaliklari Lyme Borrelia Izmir", "neuroborreliosis clinic", "tick-borne disease clinic"
+        - Arama: "Enfeksiyon Hastalıkları Lyme Borrelia İzmir", "neuroborreliosis clinic", "tick-borne disease clinic"
 
-        Ararken kullanilacak cumle
-        "Western blot/Borrelia pozitifligim var; beyin sisi, eklem agrisi ve CRP yuksekligi suruyor. Daha once uzun antibiyotik kullandim. Aktif Lyme mi, PTLDS mi, ko-enfeksiyon mu, yoksa romatolojik/inflamatuvar baska neden mi ayirt edilmesi icin Enfeksiyon + Romatoloji degerlendirmesi istiyorum."
+        Ararken kullanacağın cümle
+        "Western blot/Borrelia pozitifliğim var; beyin sisi, eklem ağrısı ve CRP yüksekliği sürüyor. Daha önce uzun antibiyotik kullandım. Aktif Lyme mı, PTLDS mi, ko-enfeksiyon mu, yoksa romatolojik/inflamatuvar başka neden mi ayırt edilmesi için Enfeksiyon + Romatoloji değerlendirmesi istiyorum."
 
         Dikkat filtresi
-        "%90 iyilestiririz", "yillarca antibiyotik sart", "test detayina bakmadan tedavi" veya "CRP kesin Lyme'dan" diyen yerlere temkinli yaklas.
+        "%90 iyileştiririz", "yıllarca antibiyotik şart", "test detayına bakmadan tedavi" veya "CRP kesin Lyme'dan" diyen yerlere temkinli yaklaş.
         {missing_line}
         """
     ).strip()
