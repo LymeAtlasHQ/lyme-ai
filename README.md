@@ -20,13 +20,16 @@ Long description:
 
 Logo source: `brand/logo.svg`
 
-Telegram bot profile name, short description, long description, and command menu are configured automatically at startup from environment variables or these defaults. Bot profile photo still needs to be uploaded manually through BotFather after the final logo candidate is selected.
+Selected logo direction: simple `LW` signal mark on a rounded dark graphite app tile, with lime and mint endpoint colors.
+
+Telegram bot profile name, short description, long description, and command menu are configured automatically at startup from environment variables or these defaults. Bot profile photo still needs to be uploaded manually through BotFather.
 
 ## Project docs
 
 - `ARCHITECTURE.md` explains the LymeWire wire model.
 - `ROADMAP.md` tracks phases from Telegram MVP to web, iOS, and Android.
 - `MOBILE_APP_SPEC.md` defines the future app structure and safety rules.
+- `TEST_PLAN.md` defines the Telegram MVP acceptance tests.
 - `brand/BRANDING.md` contains public name, descriptions, voice, slogan, and logo direction.
 
 ## Telegram bot
@@ -161,4 +164,4 @@ Core idea: **Find the signal.**
 
 LymeWire connects patient story, evidence, and clinician conversation through focused product wires: Care Wire, Research Wire, Treatment Wire, Guideline Wire, Trial Wire, Doctor Brief Wire, and Calm Wire.
 
-Logo direction is still being selected. The final mark should be app-first: simple enough for iOS, Android, Telegram, GitHub, Railway, favicon, and future web UI. Do not replace public profile images until the selected logo is confirmed.
+Logo direction is selected for V1: a simple app-first `LW` signal mark on a rounded dark graphite tile, with lime and mint endpoint colors. Public profile images should use this direction unless a future brand pass replaces it intentionally.
