@@ -532,6 +532,47 @@ def is_care_finder_query(text: str) -> bool:
     return has_care and has_lyme
 
 
+def is_contextual_care_finder_query(context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    if is_care_finder_query(text):
+        return True
+
+    lowered = text.lower()
+    care_terms = (
+        "hekim",
+        "doktor",
+        "merkez",
+        "klinik",
+        "hastane",
+        "tedavi",
+        "ilaç",
+        "ilac",
+        "başarı oran",
+        "basari oran",
+        "bulur musun",
+        "dünyada",
+        "dunyada",
+        "türkiye",
+        "turkiye",
+    )
+    has_care = any(term in lowered for term in care_terms)
+    if not has_care:
+        return False
+
+    combined = combined_context_text(context, text)
+    lyme_context_terms = (
+        "lyme",
+        "borrelia",
+        "western blot",
+        "ptlds",
+        "kene",
+        "babesia",
+        "bartonella",
+        "anaplasma",
+        "ehrlichia",
+    )
+    return any(term in combined for term in lyme_context_terms)
+
+
 def looks_like_question(text: str) -> bool:
     lowered = text.lower().strip()
     if "?" in lowered:
@@ -1504,7 +1545,7 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await send_chunks(update, answer)
         return
 
-    mode = "care" if is_care_finder_query(question) else "default"
+    mode = "care" if is_contextual_care_finder_query(context, question) else "default"
     if mode == "care":
         remember_chat_message(context, "user", question)
         answer = build_care_navigation_answer(context, question)
