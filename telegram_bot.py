@@ -511,6 +511,64 @@ def is_care_finder_query(text: str) -> bool:
     return has_care and has_lyme
 
 
+def looks_like_question(text: str) -> bool:
+    lowered = text.lower().strip()
+    if "?" in lowered:
+        return True
+    question_pattern = re.compile(
+        r"\b(mi|mı|mu|mü|ne|nasil|nasıl|nerede|hangi|neden|bul|cikar|çıkar|yap|anlat|bak|yardim|yardım)\b",
+        re.I,
+    )
+    return bool(question_pattern.search(lowered))
+
+
+def is_profile_context_update(text: str) -> bool:
+    lowered = text.lower()
+    medical_context_terms = (
+        "western blot",
+        "igm",
+        "igg",
+        "borrelia",
+        "lyme",
+        "crp",
+        "beyin sisi",
+        "eklem",
+        "antibiyotik",
+        "doksisiklin",
+        "monodoks",
+        "izmir",
+        "aliağa",
+        "aliaga",
+    )
+    has_context = sum(1 for term in medical_context_terms if term in lowered) >= 3
+    return has_context and not looks_like_question(text)
+
+
+def profile_acknowledgement(context: ContextTypes.DEFAULT_TYPE) -> str:
+    facts = context.chat_data.get("profile_facts", {})
+    known = []
+    if "location" in facts:
+        known.append("Izmir/Aliağa bağlamını")
+    if "lyme_testing" in facts:
+        known.append("Western blot/Borrelia test bağlamını")
+    if "symptoms" in facts:
+        known.append("CRP, beyin sisi ve eklem şikayetlerini")
+    if "antibiotics" in facts:
+        known.append("uzun antibiyotik geçmişini")
+
+    known_text = ", ".join(known) if known else "bu sağlık bağlamını"
+    return dedent(
+        f"""
+        Tamam, bunu not aldım: {known_text} bundan sonraki cevaplarda kullanacağım.
+
+        Şimdi bana sadece ne istediğini yazman yeterli:
+        - "rota çıkar" dersen Türkiye/dünya hekim-merkez yolunu çıkarırım.
+        - "kanıtları araştır" dersen PubMed/guideline tarafına giderim.
+        - "doktora mesaj hazırla" dersen tek kopyala-yapıştır metin yaparım.
+        """
+    ).strip()
+
+
 def clean_text(value: str | None) -> str:
     if not value:
         return ""
@@ -1303,6 +1361,13 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     question = update.message.text.strip()
     if not question:
+        return
+
+    if is_profile_context_update(question):
+        remember_chat_message(context, "user", question)
+        answer = profile_acknowledgement(context)
+        remember_chat_message(context, "assistant", answer)
+        await send_chunks(update, answer)
         return
 
     mode = "care" if is_care_finder_query(question) else "default"
