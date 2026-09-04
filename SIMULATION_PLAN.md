@@ -28,6 +28,7 @@ Expected behavior:
 - Give a Turkey-first route before caveats.
 - Mention worldwide academic/research centers as starting points, not endorsements.
 - Do not invent doctor success rankings.
+- Care route questions should use the deterministic short route, not a free-form long model answer.
 - Keep the care answer under roughly 350 words unless the user asks for a full report.
 - Ask for at most 3 missing details only after giving the route.
 - Do not repeat the same headings or restart mid-answer.
