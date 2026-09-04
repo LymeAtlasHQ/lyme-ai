@@ -23,12 +23,41 @@ Lyme, PTLDS, kene kaynakli hastaliklar ve kanitli tedavi rotalari icin AI rehber
 Description:
 LymeWire; Lyme, PTLDS, kene kaynakli enfeksiyonlar, makaleler, guideline'lar, klinik calismalar ve tedavi/hekim/merkez arama rotalari icin kaynak odakli AI asistandir. Tani koymaz veya tedavi emri vermez; kaniti, belirsizligi ve klinisyene sorulacak sorulari netlestirir.
 
-## Logo
+## Logo Status
 
-Primary logo source: `brand/logo.svg`
+Primary editable logo source: `brand/logo.svg`
 
-Use a dark square background with a lime green neural-wire L/W monogram. The mark should feel like medical evidence plus network intelligence, not a generic hospital logo.
+Logo is not fully locked yet. Do not treat generated explorations as final until the selected mark is confirmed.
 
+The final logo must work in these places:
+
+- iOS app icon,
+- Android adaptive icon,
+- Telegram avatar,
+- GitHub organization/repo identity,
+- Railway service/project identity,
+- website favicon,
+- future social and merch use.
+
+## Current Logo Direction
+
+The strongest practical direction is app-first and simple:
+
+- dark graphite background,
+- lime/mint LymeWire mark,
+- bold silhouette,
+- minimal detail,
+- readable at 32px,
+- no fake medical authority symbols.
+
+Explored motifs:
+
+- minimal L/W wire mark,
+- DNA / Borrelia-like spiral signal,
+- tick containment mark,
+- barbed-wire signal ring.
+
+The tick/barbed-wire idea can be used only if it is abstract and clean enough. Avoid a realistic tick, horror imagery, or anything that feels like a warning sign instead of a trusted app.
 
 ## Slogan
 
@@ -39,52 +68,55 @@ Turkish companion line:
 Sinyali bul. Belirsizligi azalt.
 
 Why this works:
+
 - LymeWire helps people find signal inside medical noise, fear, conflicting guidelines, and scattered research.
-- It is short enough for an app tagline, website hero, sticker, or tattoo.
+- It is short enough for an app tagline, website hero, sticker, or profile bio.
 - It does not overpromise cure, diagnosis, or certainty.
 
 Alternative slogan candidates:
+
 - Evidence through the fog.
 - Less noise. More evidence.
 - Connect symptoms to evidence.
 - Where Lyme evidence connects.
 - Clarity for the Lyme maze.
 
-
 ## Brand Idea
 
 LymeWire is built around one metaphor: finding signal in medical noise.
 
 The product connects three things that are usually scattered:
+
 - the patient story,
 - the evidence,
 - the clinician conversation.
 
-The logo should preserve that idea. The preferred mark is a minimal L/W wire path with three nodes:
-- Patient
-- Evidence
-- Clinician
+The logo should preserve that idea without becoming generic medical branding.
 
-This gives the symbol emotional meaning without turning it into a hospital logo.
+## Logo Rules
 
-## Logo Direction
+Prefer:
 
-Preferred direction:
-A minimal continuous-line L/W monogram with three connection nodes. It should work in three settings:
-- small app icon,
-- black one-color tattoo,
-- website hero mark.
+- simple geometry,
+- one clear mark,
+- lime/mint on dark graphite,
+- one-color fallback compatibility,
+- strong small-size readability.
 
 Avoid:
+
 - realistic ticks,
 - generic medical crosses,
 - caduceus/snakes,
 - fear-based disease imagery,
-- complex detail that fails as a tattoo.
+- complex detail that fails as an app icon,
+- long text inside the icon,
+- fake official/clinical-looking seals.
 
 ## Voice
 
 LymeWire should sound:
+
 - sharp but not cold,
 - evidence-aware but not dismissive,
 - warm but not sentimental,
