@@ -198,12 +198,33 @@ QUALITY_REPAIR_PROMPT = dedent(
 
     Required improvements:
     - Lead with a direct practical answer.
+    - If the user asked for care navigation, compress the answer to the route and next action first.
     - Include evidence/uncertainty, not just reassurance.
     - Include what to track or bring to a clinician.
     - Include 2-4 sharp clinician questions when relevant.
     - Include emergency red flags when relevant.
     - Do not diagnose, prescribe, or invent sources.
     - Do not use the phrase "Lyme-literate".
+    """
+).strip()
+
+CARE_COMPRESSION_PROMPT = dedent(
+    """
+    The care-navigation draft is too long or too brochure-like.
+    Rewrite it in Turkish as a short route, maximum 350 words.
+
+    Required shape:
+    Kisa rota
+    Bugun bakilacak yerler
+    Ararken kullanilacak cumle
+    Dikkat filtresi
+
+    Rules:
+    - No long lab checklist.
+    - No full treatment lecture.
+    - Mention success-rate rankings only once.
+    - Use known context instead of asking it again.
+    - End with one concrete next action.
     """
 ).strip()
 
@@ -303,43 +324,43 @@ CARE_FINDER_PROMPT = dedent(
     Critical output rules:
     - Do not begin with a file checklist. First give the route.
     - Do not answer only with departments. The user asked for treatment/doctor/center navigation.
-    - Do not claim you can rank doctors by success rate. Say reliable public success-rate rankings are usually not available, then continue with a useful route.
+    - Mention the success-rate limitation in one sentence only, then move on.
     - Do not ask the user to repeat information already present in current or recent context.
     - Use the user's city/country and known symptoms when available.
-    - Keep it compact enough for Telegram. Target 450-900 words unless the user explicitly asks for a full report.
+    - Keep it compact enough for Telegram. Target 220-450 words unless the user explicitly asks for a full report.
     - Prefer fewer, sharper bullets over long exhaustive lists.
     - Never repeat the same heading sequence or restart the answer mid-reply.
     - Start with a human sentence that acknowledges the user's situation, then move into the route.
     - Give the user the next 3 actions clearly before longer caveats.
     - Avoid sounding like a generic hospital referral page.
+    - Do not include a long "bring this file" checklist unless the user asks for appointment prep.
+    - Do not include a full treatment evidence lecture unless the user asks for treatment evidence.
+    - If the user asks "bulur musun", give search targets, exact search terms, and what to verify.
 
-    Use this structure when the user needs a full route:
-    Kisa cevap
-    Ilk 3 hamle
-    Turkiye/Izmir rotasi
-    Dunya rotasi
-    Tedavi haritasi
-    Mesaj taslagi
+    Default Turkish structure:
+    Kisa rota
+    Bugun bakilacak yerler
+    Ararken kullanilacak cumle
     Dikkat filtresi
 
     If the user sounds frustrated, use a shorter version:
     Kisa cevap
     Bugun yapilacaklar
     Nereye bakacagiz
-    Bana tek mesajda sunu at
+    Sonra derinlestiririz
 
     Content expectations:
     - For Turkey/Izmir, suggest a Turkey-first pathway: university hospital or training/research hospital Infectious Diseases; add Rheumatology for persistent CRP/joint symptoms, Neurology for brain fog/focal neurologic symptoms, Cardiology for palpitations/fainting, Dermatology for rash. Keep this to 4-6 bullets.
     - For Izmir specifically, it is acceptable to mention checking university-hospital routes such as Ege University and Dokuz Eylul, plus MHRS/large training-research hospital infectious diseases clinics, phrased as starting points to verify rather than guaranteed Lyme specialists.
     - For worldwide searches, include credible academic/research starting points, not endorsements or rankings: Johns Hopkins Lyme Disease Research Center and Columbia Lyme and Tick-Borne Diseases Research Center. If you name a center, include its URL.
-    - For treatment, separate: guideline-backed active Lyme treatment, PTLDS/persistent-symptom care, coinfection evaluation, and experimental/uncertain approaches. Keep this section concise.
+    - For treatment, give only the map unless asked for details: active Lyme, PTLDS/persistent symptoms, coinfection evaluation, other inflammation sources.
     - Say that early objectively diagnosed Lyme generally responds well to standard antibiotics, while prolonged antibiotics for PTLDS have not shown consistent benefit and carry risks.
     - If the user has long antibiotic exposure, emphasize reassessment before more antibiotics: objective active signs, coinfections, inflammatory/autoimmune causes, endocrine/nutritional/sleep/dysautonomia causes, medication effects.
     - Include practical search terms: "Enfeksiyon Hastaliklari Lyme Borrelia", "tick-borne disease clinic", "Lyme disease research center", "neuroborreliosis clinic".
-    - Include a short copy-paste appointment message the user can send to a hospital/clinic. It should mention Western blot, persistent CRP, long antibiotic exposure, dominant symptoms, and request reassessment for active Lyme vs PTLDS vs other inflammatory/neurologic causes.
+    - Include a very short copy-paste appointment message the user can send to a hospital/clinic. It should mention Western blot, persistent CRP, long antibiotic exposure, dominant symptoms, and request reassessment for active Lyme vs PTLDS vs other inflammatory/neurologic causes.
     - For Turkey, mention MHRS, university hospital appointment systems, and hospital patient services as practical routes; do not imply you have checked current appointment availability.
     - If the user asks for a found list and live web lookup is unavailable inside Telegram, explain that the bot can prepare the search route and keywords, while a live web search should verify current doctors/appointments.
-    - End with a concrete next message the user can send, but only after giving the route. Ask for no more than 5 missing data points.
+    - End by offering the next concrete subtask in one sentence: live doctor/center verification, appointment message, or evidence review. Ask for no more than 3 missing data points.
     - If the answer is becoming long, shorten the checklist instead of repeating earlier sections.
     - Never prescribe or tell the user to start/stop/change medication.
     """
@@ -1093,6 +1114,7 @@ async def ask_model(
     quality_repair: bool = True,
     conversation_context: ContextTypes.DEFAULT_TYPE | None = None,
     memory_user_text: str | None = None,
+    mode: str = "default",
 ) -> None:
     if not update.message:
         return
@@ -1110,6 +1132,29 @@ async def ask_model(
             ],
         )
         answer = normalize_answer(response.output_text, evidence_card=evidence_card)
+
+        if mode == "care" and len(answer) > 2600:
+            repair_response = client.responses.create(
+                model=MODEL,
+                input=[
+                    {"role": "system", "content": system_prompt + "\n\n" + CARE_COMPRESSION_PROMPT},
+                    {
+                        "role": "user",
+                        "content": dedent(
+                            f"""
+                            Original user request with recent context:
+                            {contextual_user_text}
+
+                            Long care-navigation draft:
+                            {answer}
+
+                            Compress it now.
+                            """
+                        ).strip(),
+                    },
+                ],
+            )
+            answer = normalize_answer(repair_response.output_text, evidence_card=evidence_card)
 
         if quality_repair and needs_quality_repair(answer, evidence_card=evidence_card):
             repair_response = client.responses.create(
@@ -1270,6 +1315,7 @@ async def mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE, mode:
         quality_repair=(mode != "calm"),
         conversation_context=context,
         memory_user_text=f"/{mode} {text}",
+        mode=mode,
     )
 
 
@@ -1378,6 +1424,7 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         quality_repair=True,
         conversation_context=context,
         memory_user_text=question,
+        mode=mode,
     )
 
 
