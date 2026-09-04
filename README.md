@@ -20,7 +20,14 @@ Long description:
 
 Logo source: `brand/logo.svg`
 
-Telegram bot profile name, short description, long description, and command menu are configured automatically at startup from environment variables or these defaults. Bot profile photo still needs to be uploaded manually through BotFather.
+Telegram bot profile name, short description, long description, and command menu are configured automatically at startup from environment variables or these defaults. Bot profile photo still needs to be uploaded manually through BotFather after the final logo candidate is selected.
+
+## Project docs
+
+- `ARCHITECTURE.md` explains the LymeWire wire model.
+- `ROADMAP.md` tracks phases from Telegram MVP to web, iOS, and Android.
+- `MOBILE_APP_SPEC.md` defines the future app structure and safety rules.
+- `brand/BRANDING.md` contains public name, descriptions, voice, slogan, and logo direction.
 
 ## Telegram bot
 
@@ -41,8 +48,6 @@ The LymeWire Telegram bot entrypoint is `telegram_bot.py`.
 - `/source` for source-aware answers.
 - `/calm` for anxiety/panic-safe support.
 - `/safety` for emergency warning boundaries.
-
-
 
 ### Care finder mode
 
@@ -150,11 +155,10 @@ The bot uses polling in this version, so it does not need a public webhook URL y
 
 LymeWire is a research and patient-support assistant. It does not diagnose, prescribe, or replace urgent medical care. Emergency or worsening symptoms should be handled through local emergency medical services.
 
-
 ## LymeWire Brand Direction
 
 Core idea: **Find the signal.**
 
 LymeWire connects patient story, evidence, and clinician conversation through focused product wires: Care Wire, Research Wire, Treatment Wire, Guideline Wire, Trial Wire, Doctor Brief Wire, and Calm Wire.
 
-Preferred logo direction: a minimal continuous-line L/W wire mark with three nodes representing patient, evidence, and clinician. It should work as an app icon and as a one-color tattoo.
+Logo direction is still being selected. The final mark should be app-first: simple enough for iOS, Android, Telegram, GitHub, Railway, favicon, and future web UI. Do not replace public profile images until the selected logo is confirmed.
