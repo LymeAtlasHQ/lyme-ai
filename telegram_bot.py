@@ -590,6 +590,88 @@ def profile_acknowledgement(context: ContextTypes.DEFAULT_TYPE) -> str:
     ).strip()
 
 
+def combined_context_text(context: ContextTypes.DEFAULT_TYPE, user_text: str) -> str:
+    return f"{recent_chat_context(context)}\n{user_text}".lower()
+
+
+def build_care_navigation_answer(context: ContextTypes.DEFAULT_TYPE, user_text: str) -> str:
+    combined = combined_context_text(context, user_text)
+    izmir_context = any(term in combined for term in ("izmir", "aliağa", "aliaga"))
+    western_blot_context = "western blot" in combined or "borrelia" in combined
+    crp_context = "crp" in combined
+    long_antibiotic_context = any(term in combined for term in ("aylarca antibiyotik", "uzun antibiyotik", "antibiyotik kulland"))
+
+    known_bits = []
+    if izmir_context:
+        known_bits.append("Izmir/Aliağa")
+    if western_blot_context:
+        known_bits.append("Western blot/Borrelia")
+    if crp_context:
+        known_bits.append("CRP yüksekliği")
+    if long_antibiotic_context:
+        known_bits.append("uzun antibiyotik geçmişi")
+    known_line = ", ".join(known_bits)
+
+    intro = (
+        f"Sende bildiğim bağlam: {known_line}. "
+        if known_bits
+        else ""
+    )
+
+    missing = []
+    if not re.search(r"\b(igm|igg)\b", combined):
+        missing.append("IgM/IgG ve pozitif bantlar")
+    if crp_context and not re.search(r"\bcrp\s*[:=]?\s*\d+", combined):
+        missing.append("son CRP değeri")
+    if "şiş" not in combined and "sis" not in combined:
+        missing.append("eklemde gerçek şişlik var mı")
+    missing_line = ""
+    if missing:
+        missing_line = "\n\nDaraltmak için sonra sadece şunu at: " + ", ".join(missing[:3]) + "."
+
+    if izmir_context:
+        turkey_route = (
+            "1. Izmir: Ege Uni, Dokuz Eylul veya Izmir Sehir Hastanesi icin Enfeksiyon + Romatoloji hattini ara.\n"
+            "2. Izmir yetmezse: Hacettepe, Ankara Uni, Capa/Cerrahpasa gibi akademik merkezlerde ikinci gorus bak.\n"
+            "3. Dunya: Johns Hopkins, Columbia ve Stony Brook Lyme/tick-borne merkezlerini randevu/ikinci gorus icin kontrol et."
+        )
+    else:
+        turkey_route = (
+            "1. Bulundugun sehirde universiteler veya egitim-arastirma hastanelerinde Enfeksiyon + Romatoloji hattini ara.\n"
+            "2. Turkiye ust basamak: Hacettepe, Ankara Uni, Capa/Cerrahpasa.\n"
+            "3. Dunya: Johns Hopkins, Columbia ve Stony Brook Lyme/tick-borne merkezleri."
+        )
+
+    antibiotic_note = (
+        "Aylarca antibiyotik kullanimindan sonra hedef 'daha guclu antibiyotik' degil; aktif Lyme, PTLDS, ko-enfeksiyon veya baska inflamasyon kaynagini ayirmak."
+        if long_antibiotic_context
+        else "Hedef, once aktif Lyme mi, PTLDS mi, ko-enfeksiyon mu yoksa baska inflamasyon mu ayirmak."
+    )
+
+    answer = dedent(
+        f"""
+        Kisa rota
+        {intro}Basari orani diye guvenilir doktor siralamasi yok; bu yuzden reklam degil, ayirici tani yapabilen merkez arayacagiz. {antibiotic_note}
+
+        Bugun bakilacak yerler
+        {turkey_route}
+
+        Link/arama hedefleri
+        - Johns Hopkins: https://www.hopkinslyme.org/
+        - Columbia: https://www.columbia-lyme.org/
+        - Arama: "Enfeksiyon Hastaliklari Lyme Borrelia Izmir", "neuroborreliosis clinic", "tick-borne disease clinic"
+
+        Ararken kullanilacak cumle
+        "Western blot/Borrelia pozitifligim var; beyin sisi, eklem agrisi ve CRP yuksekligi suruyor. Daha once uzun antibiyotik kullandim. Aktif Lyme mi, PTLDS mi, ko-enfeksiyon mu, yoksa romatolojik/inflamatuvar baska neden mi ayirt edilmesi icin Enfeksiyon + Romatoloji degerlendirmesi istiyorum."
+
+        Dikkat filtresi
+        "%90 iyilestiririz", "yillarca antibiyotik sart", "test detayina bakmadan tedavi" veya "CRP kesin Lyme'dan" diyen yerlere temkinli yaklas.
+        {missing_line}
+        """
+    ).strip()
+    return re.sub(r"\n[ \t]{8,}", "\n", answer)
+
+
 def clean_text(value: str | None) -> str:
     if not value:
         return ""
@@ -1308,6 +1390,12 @@ async def mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE, mode:
     if not text:
         await send_chunks(update, COMMAND_HINTS[mode])
         return
+    if mode == "care":
+        remember_chat_message(context, "user", f"/{mode} {text}")
+        answer = build_care_navigation_answer(context, text)
+        remember_chat_message(context, "assistant", answer)
+        await send_chunks(update, answer)
+        return
     await ask_model(
         update,
         MODE_PROMPTS[mode],
@@ -1417,6 +1505,13 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     mode = "care" if is_care_finder_query(question) else "default"
+    if mode == "care":
+        remember_chat_message(context, "user", question)
+        answer = build_care_navigation_answer(context, question)
+        remember_chat_message(context, "assistant", answer)
+        await send_chunks(update, answer)
+        return
+
     await ask_model(
         update,
         MODE_PROMPTS[mode],
