@@ -28,7 +28,8 @@ Expected behavior:
 - Give a Turkey-first route before caveats.
 - Mention worldwide academic/research centers as starting points, not endorsements.
 - Do not invent doctor success rankings.
-- Ask for at most 5 missing details only after giving the route.
+- Keep the care answer under roughly 350 words unless the user asks for a full report.
+- Ask for at most 3 missing details only after giving the route.
 - Do not repeat the same headings or restart mid-answer.
 
 ## Simulation 2: Anxiety Plus Lyme Context
