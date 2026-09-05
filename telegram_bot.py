@@ -180,7 +180,7 @@ DEFAULT_RESPONSE_PROMPT = dedent(
     - If the user writes Turkish, use Turkish headings and a warm, direct tone.
     - For evidence-heavy questions, explicitly say when the current reply is a general AI answer rather than a retrieved-source card.
     - When recent Telegram context is included, use it to resolve pronouns and follow-ups. Do not say you can only see the last message.
-    - End evidence-heavy answers with one short "Kaynakli derinlestirme" line that suggests the best exact command.
+    - Do not append command suggestions by default. Suggest a command only when it directly helps the current request.
     - Prefer specific command suggestions, for example:
       /research post-treatment Lyme disease syndrome randomized trial
       /treatment long-term antibiotics post-treatment Lyme disease syndrome
@@ -1533,17 +1533,11 @@ async def mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE, mode:
     if not text:
         await send_chunks(update, COMMAND_HINTS[mode])
         return
-    if mode == "care":
-        remember_chat_message(context, "user", f"/{mode} {text}")
-        answer = build_care_navigation_answer(context, text)
-        remember_chat_message(context, "assistant", answer)
-        await send_chunks(update, answer)
-        return
     await ask_model(
         update,
         MODE_PROMPTS[mode],
         text,
-        quality_repair=(mode != "calm"),
+        quality_repair=(mode not in ("calm", "care")),
         conversation_context=context,
         memory_user_text=f"/{mode} {text}",
         mode=mode,
@@ -1651,13 +1645,6 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not question:
         return
 
-    if is_profile_context_update(question):
-        remember_chat_message(context, "user", question)
-        answer = profile_acknowledgement(context)
-        remember_chat_message(context, "assistant", answer)
-        await send_chunks(update, answer)
-        return
-
     if is_care_live_query(context, question):
         remember_chat_message(context, "user", question)
         answer = build_care_live_answer(context, question)
@@ -1666,18 +1653,11 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     mode = "care" if is_contextual_care_finder_query(context, question) else "default"
-    if mode == "care":
-        remember_chat_message(context, "user", question)
-        answer = build_care_navigation_answer(context, question)
-        remember_chat_message(context, "assistant", answer)
-        await send_chunks(update, answer)
-        return
-
     await ask_model(
         update,
         MODE_PROMPTS[mode],
         question,
-        quality_repair=True,
+        quality_repair=False,
         conversation_context=context,
         memory_user_text=question,
         mode=mode,
