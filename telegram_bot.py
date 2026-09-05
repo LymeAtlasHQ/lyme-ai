@@ -415,6 +415,7 @@ START_TEXT = dedent(
     /guideline - tek guideline/resmi kaynak ozeti
     /trial - ClinicalTrials.gov klinik calisma aramasi
     /care - tedavi/hekim/merkez bulma rotasi
+    /carelive - merkez/doktor aramasi icin canli dogrulama listesi
     /source - kaynak/kanit odakli yanit modu
     /calm - panik veya anksiyete aninda sakin mod
     /safety - acil uyari sinirlari
@@ -439,10 +440,11 @@ HELP_TEXT = dedent(
     /guideline NICE Lyme disease ongoing symptoms
     /trial post-treatment Lyme disease syndrome
     /care Turkiye Izmir Lyme tedavi hekim merkez
+    /carelive Izmir Aliağa western blot pozitif CRP yüksek
     /source Kronik Lyme konusunda kanit tartismasi ne?
     /calm Panik oldum, kalbim hizli atiyor.
 
-    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. /trial ClinicalTrials.gov uzerinden klinik calisma arar. /care tedavi/hekim/merkez arama rotasi cikarir.
+    /paper, /research, /treatment, /compare ve /guideline kaynak/PubMed kaydi cekmeye calisir. /trial ClinicalTrials.gov uzerinden klinik calisma arar. /care rota cikarir. /carelive resmi kaynaklardan dogrulanacak arama listesini verir.
     """
 ).strip()
 
@@ -469,6 +471,7 @@ COMMAND_HINTS = {
     "guideline": "Hangi guideline/resmi kaynagi ozetleyeyim? Ornek: CDC Lyme treatment veya NICE ongoing symptoms",
     "trial": "ClinicalTrials.gov'da ne arayayim? Ornek: post-treatment Lyme disease syndrome veya Lyme vaccine",
     "care": "Hangi ulke/sehir icin tedavi-hekim-merkez rotasi cikarayim? Ornek: Turkiye Izmir, western blot pozitif, beyin sisi, eklem agrisi, dusmeyen CRP",
+    "carelive": "Hangi şehir/ülke için canlı doğrulama rotası çıkarayım? Örnek: İzmir Aliağa, western blot pozitif, CRP yüksek, beyin sisi",
     "source": "Hangi iddia veya konuyu kaynak/kanit acisindan inceleyeyim? Tek mesajda yaz.",
     "calm": "Once guvende misin? Gogus agrisi, bayilma, nefes darligi veya kendine zarar dusuncesi varsa acile yonel. Yoksa ne hissettigini yaz, beraber daraltalim.",
 }
@@ -571,6 +574,24 @@ def is_contextual_care_finder_query(context: ContextTypes.DEFAULT_TYPE, text: st
         "ehrlichia",
     )
     return any(term in combined for term in lyme_context_terms)
+
+
+def is_care_live_query(context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    lowered = text.lower()
+    live_terms = (
+        "canlı ara",
+        "canli ara",
+        "güncel link",
+        "guncel link",
+        "randevu link",
+        "doktor ismi",
+        "merkez liste",
+        "linkleri bul",
+        "nereden randevu",
+    )
+    if not any(term in lowered for term in live_terms):
+        return False
+    return is_contextual_care_finder_query(context, text)
 
 
 def looks_like_question(text: str) -> bool:
@@ -708,6 +729,87 @@ def build_care_navigation_answer(context: ContextTypes.DEFAULT_TYPE, user_text: 
         Dikkat filtresi
         "%90 iyileştiririz", "yıllarca antibiyotik şart", "test detayına bakmadan tedavi" veya "CRP kesin Lyme'dan" diyen yerlere temkinli yaklaş.
         {missing_line}
+        """
+    ).strip()
+    return re.sub(r"\n[ \t]{8,}", "\n", answer)
+
+
+def build_care_live_answer(context: ContextTypes.DEFAULT_TYPE, user_text: str) -> str:
+    combined = combined_context_text(context, user_text)
+    izmir_context = any(term in combined for term in ("izmir", "aliağa", "aliaga"))
+    western_blot_context = "western blot" in combined or "borrelia" in combined
+    crp_context = "crp" in combined
+    long_antibiotic_context = any(term in combined for term in ("aylarca antibiyotik", "uzun antibiyotik", "antibiyotik kulland"))
+
+    known_bits = []
+    if izmir_context:
+        known_bits.append("İzmir/Aliağa")
+    if western_blot_context:
+        known_bits.append("Western blot/Borrelia")
+    if crp_context:
+        known_bits.append("CRP yüksekliği")
+    if long_antibiotic_context:
+        known_bits.append("uzun antibiyotik geçmişi")
+    known_line = ", ".join(known_bits) if known_bits else "Lyme/tick-borne bağlamı"
+
+    if izmir_context:
+        local_targets = (
+            "- Ege Üniversitesi Hastanesi: Enfeksiyon Hastalıkları + Romatoloji sayfaları\n"
+            "- Dokuz Eylül Üniversitesi Hastanesi: Enfeksiyon Hastalıkları + Nöroloji/Romatoloji\n"
+            "- İzmir Şehir Hastanesi veya MHRS: Enfeksiyon Hastalıkları, Romatoloji, Nöroloji"
+        )
+        local_searches = (
+            '- "site:egehastanesi.ege.edu.tr Enfeksiyon Hastalıkları Lyme Borrelia"\n'
+            '- "site:hastane.deu.edu.tr Enfeksiyon Hastalıkları Borrelia"\n'
+            '- "MHRS İzmir Enfeksiyon Hastalıkları Lyme Borrelia"'
+        )
+    else:
+        local_targets = (
+            "- Bulunduğun şehirde üniversite/eğitim hastanesi Enfeksiyon Hastalıkları\n"
+            "- CRP + eklem için Romatoloji\n"
+            "- Beyin sisi veya nörolojik belirti için Nöroloji"
+        )
+        local_searches = (
+            '- "Enfeksiyon Hastalıkları Lyme Borrelia [şehir]"\n'
+            '- "Romatoloji CRP yüksekliği eklem ağrısı [şehir]"\n'
+            '- "nöroborreliyoz kliniği [ülke/şehir]"'
+        )
+
+    antibiotic_line = (
+        "Uzun antibiyotik geçmişin olduğu için aradığımız şey 'daha sert tedavi' değil; aktif enfeksiyon, PTLDS, ko-enfeksiyon ve CRP kaynağını ayırabilen ekip."
+        if long_antibiotic_context
+        else "Aradığımız şey sadece Lyme bilen biri değil; aktif enfeksiyon, PTLDS, ko-enfeksiyon ve başka inflamasyon kaynaklarını ayırabilen ekip."
+    )
+
+    answer = dedent(
+        f"""
+        Canlı arama modu
+        Sende bildiğim bağlam: {known_line}. {antibiotic_line}
+
+        Önce doğrulanacak yerler
+        {local_targets}
+
+        Dünya için resmi başlangıçlar
+        - Johns Hopkins Lyme Disease Research Center: https://www.hopkinslyme.org/
+        - Columbia Lyme and Tick-Borne Diseases Research Center: https://www.columbia-lyme.org/
+        - Stony Brook Lyme Disease Program: https://www.stonybrookmedicine.edu/patientcare/lymedisease
+
+        Arama sorguları
+        {local_searches}
+        - "tick-borne disease clinic international patients"
+        - "post-treatment Lyme disease syndrome clinic"
+        - "neuroborreliosis clinic university hospital"
+
+        Linki açınca kontrol et
+        1. Resmi hastane/üniversite sayfası mı?
+        2. Enfeksiyon + Romatoloji/Nöroloji birlikte ilerleyebiliyor mu?
+        3. Western blot bantlarını, CRP trendini ve uzun antibiyotik geçmişini soruyor mu?
+        4. "%90 başarı", "yıllarca antibiyotik şart", "tek test yeter" gibi garanti dilinden kaçınıyor mu?
+
+        Kopyala-yapıştır mesaj
+        "Western blot/Borrelia pozitifliğim var. Beyin sisi, eklem ağrısı ve CRP yüksekliği sürüyor. Daha önce uzun süre antibiyotik kullandım. Aktif Lyme mı, PTLDS mi, ko-enfeksiyon mu, yoksa romatolojik/nörolojik başka neden mi ayırt edilmesi için Enfeksiyon + Romatoloji/Nöroloji değerlendirmesi istiyorum. Bu konuda hangi polikliniğe başvurmalıyım?"
+
+        Bana bulduğun 2-3 linki at; ben onları hızlıca güvenilirlik, uygun branş ve kırmızı bayrak açısından eleyeyim.
         """
     ).strip()
     return re.sub(r"\n[ \t]{8,}", "\n", answer)
@@ -1522,6 +1624,17 @@ async def care(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "care")
 
 
+async def carelive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = command_text(context)
+    if not text:
+        await send_chunks(update, COMMAND_HINTS["carelive"])
+        return
+    remember_chat_message(context, "user", f"/carelive {text}")
+    answer = build_care_live_answer(context, text)
+    remember_chat_message(context, "assistant", answer)
+    await send_chunks(update, answer)
+
+
 async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await mode_command(update, context, "source")
 
@@ -1541,6 +1654,13 @@ async def answer_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if is_profile_context_update(question):
         remember_chat_message(context, "user", question)
         answer = profile_acknowledgement(context)
+        remember_chat_message(context, "assistant", answer)
+        await send_chunks(update, answer)
+        return
+
+    if is_care_live_query(context, question):
+        remember_chat_message(context, "user", question)
+        answer = build_care_live_answer(context, question)
         remember_chat_message(context, "assistant", answer)
         await send_chunks(update, answer)
         return
@@ -1569,6 +1689,7 @@ async def configure_bot_profile(application: Application) -> None:
         BotCommand("start", "LymeWire'i baslat"),
         BotCommand("help", "Komutlari ve ornekleri goster"),
         BotCommand("care", "Tedavi, hekim ve merkez rotasi"),
+        BotCommand("carelive", "Merkez arama ve dogrulama listesi"),
         BotCommand("research", "PubMed aramasi ve kanit karti"),
         BotCommand("treatment", "Tedavi iddiasi kanit-risk karti"),
         BotCommand("paper", "PMID veya makale analizi"),
@@ -1605,6 +1726,7 @@ def build_application() -> Application:
     application.add_handler(CommandHandler("guideline", guideline))
     application.add_handler(CommandHandler("trial", trial))
     application.add_handler(CommandHandler("care", care))
+    application.add_handler(CommandHandler("carelive", carelive))
     application.add_handler(CommandHandler("source", source))
     application.add_handler(CommandHandler("calm", calm))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_message))
