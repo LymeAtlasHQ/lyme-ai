@@ -137,6 +137,7 @@ BASE_PROMPT = dedent(
     - Make the answer usable for a patient: what to track, what to ask, what would change urgency.
     - Use recent Telegram context when it is provided; do not ask users to repeat details already visible in recent context.
     - If the user says "I wrote it above", "dedim ya", "ustte var", or similar, look back at recent context and continue from there.
+    - If the user asks you to repeat, translate, or summarize your first/previous message, use the recent Telegram context instead of saying you cannot remember.
     - Separate established guidance, limited evidence, hypotheses, anecdotes, and unsupported claims.
     - Name the evidence type when possible: guideline, systematic review, randomized trial, pilot trial, case report, animal/in-vitro, anecdote.
     - Make certainty visible with short labels such as higher confidence, mixed/uncertain, or weak evidence.
@@ -872,6 +873,8 @@ def remember_chat_message(context: ContextTypes.DEFAULT_TYPE, role: str, content
     if not text:
         return
     history = context.chat_data.setdefault("history", [])
+    if history and history[-1].get("role") == role and history[-1].get("content") == text[:MAX_CHAT_HISTORY_CHARS]:
+        return
     history.append({"role": role, "content": text[:MAX_CHAT_HISTORY_CHARS]})
     if len(history) > MAX_CHAT_HISTORY_MESSAGES:
         del history[:-MAX_CHAT_HISTORY_MESSAGES]
@@ -1552,14 +1555,17 @@ async def ask_with_trials(update: Update, context: ContextTypes.DEFAULT_TYPE, pr
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    remember_chat_message(context, "assistant", START_TEXT)
     await send_chunks(update, START_TEXT)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    remember_chat_message(context, "assistant", HELP_TEXT)
     await send_chunks(update, HELP_TEXT)
 
 
 async def safety(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    remember_chat_message(context, "assistant", SAFETY_TEXT)
     await send_chunks(update, SAFETY_TEXT)
 
 
