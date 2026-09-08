@@ -1,18 +1,29 @@
 import { API_BASE_URL } from "./config";
+import type { WireId } from "./config";
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 export type AskResponse = {
   brand?: string;
   wire?: string;
   answer?: string;
+  retrieval_notes?: string[];
 };
 
-export async function askLymeWire(question: string): Promise<string> {
+export async function askLymeWire(
+  question: string,
+  wire: WireId = "ask",
+  history: ChatMessage[] = [],
+): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, wire, history }),
   });
 
   if (!response.ok) {

@@ -10,8 +10,9 @@ https://lyme-ai-production.up.railway.app
 
 ## What works in this MVP
 
-- Chat screen connected to `POST /ask`.
+- Chat screen connected to wire-aware `POST /ask`.
 - Wires screen for Care, Research, Treatment, Guideline, Trial, Doctor Brief, and Calm modes.
+- Recent app messages are sent as short `history` context.
 - Local-only Timeline notes.
 - Doctor Brief draft generation from local Timeline notes.
 - Sources screen with safety and evidence boundaries.

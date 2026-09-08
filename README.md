@@ -39,6 +39,8 @@ The first mobile app shell lives in `mobile/`.
 
 It is an Expo app with shared iOS, Android/APK, and web targets. The MVP connects to the existing Railway API, exposes Chat, Wires, Timeline, Doctor Brief, and Sources tabs, and keeps entered timeline notes local on-device until a real privacy/account design exists.
 
+The mobile app now sends `wire` and short `history` context to `/ask`, so the app can call the same product routes that Telegram exposes as commands.
+
 ```bash
 cd mobile
 npm install
@@ -62,6 +64,36 @@ npx eas build -p ios --profile production
 ## Telegram bot
 
 The LymeWire Telegram bot entrypoint is `telegram_bot.py`.
+
+## Product API
+
+The FastAPI product surface is `main.py` and uses `core/product.py`.
+
+Current endpoints:
+
+- `GET /health` - service health and product API status.
+- `GET /wires` - public wire list for apps and web surfaces.
+- `POST /ask` - wire-aware AI answer endpoint.
+- `GET /timeline/schema` - local-first timeline schema for mobile/web clients.
+- `POST /brief` - doctor brief draft from timeline fields.
+
+`POST /ask` accepts:
+
+```json
+{
+  "question": "PTLDS randomize calismalari ozetle",
+  "wire": "research",
+  "history": [
+    { "role": "user", "content": "Speak English please" }
+  ],
+  "profile": {
+    "location": "Izmir",
+    "language": "tr"
+  }
+}
+```
+
+Supported wires: `ask`, `care`, `research`, `treatment`, `guideline`, `compare`, `trial`, `doctorbrief`, `calm`.
 
 ### Current capabilities
 

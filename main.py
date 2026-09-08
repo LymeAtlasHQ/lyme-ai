@@ -1,21 +1,16 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from openai import OpenAI
 import os
+
+from fastapi import FastAPI
+
+from core.product import AskRequest, TimelineDraft, answer_product, build_doctor_brief, timeline_schema
 
 BRAND_NAME = os.getenv("APP_NAME", "LymeWire")
 
 app = FastAPI(
     title=f"{BRAND_NAME} API",
     description="Evidence-aware Lyme and tick-borne illness AI network.",
-    version="0.3.0",
+    version="0.4.0",
 )
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-
-class Question(BaseModel):
-    question: str
 
 
 @app.get("/")
@@ -28,7 +23,9 @@ def root():
         "entrypoints": {
             "telegram": "primary MVP interface",
             "ask": "/ask",
+            "brief": "/brief",
             "health": "/health",
+            "timeline_schema": "/timeline/schema",
             "wires": "/wires",
         },
     }
@@ -39,6 +36,7 @@ def health():
     return {
         "status": "healthy",
         "brand": BRAND_NAME,
+        "product_api": "wire-aware",
     }
 
 
@@ -68,23 +66,38 @@ def wires():
                 "purpose": "ClinicalTrials.gov study discovery and trial status cards.",
             },
             {
+                "id": "compare",
+                "name": "Compare Wire",
+                "purpose": "Side-by-side comparison of guidelines, sources, studies, or claims.",
+            },
+            {
                 "id": "doctorbrief",
                 "name": "Doctor Brief Wire",
                 "purpose": "Clinician-facing appointment summaries.",
+            },
+            {
+                "id": "calm",
+                "name": "Calm Wire",
+                "purpose": "Low-alarm support in panic moments with urgent red-flag screening.",
             },
         ],
     }
 
 
 @app.post("/ask")
-def ask(data: Question):
-    response = client.responses.create(
-        model=os.getenv("MODEL", "gpt-5.5"),
-        input=data.question,
-    )
+async def ask(data: AskRequest):
+    return await answer_product(data)
 
+
+@app.get("/timeline/schema")
+def get_timeline_schema():
+    return timeline_schema()
+
+
+@app.post("/brief")
+def brief(data: TimelineDraft):
     return {
         "brand": BRAND_NAME,
-        "wire": "ask",
-        "answer": response.output_text,
+        "wire": "doctorbrief",
+        "brief": build_doctor_brief(data),
     }

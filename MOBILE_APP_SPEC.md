@@ -203,6 +203,7 @@ It uses Expo so the same codebase can produce:
 Implemented in the first pass:
 
 - Chat tab connected to the Railway `/ask` endpoint.
+- Mobile requests send `wire` plus recent local chat history to the backend.
 - Wires tab with Care, Research, Treatment, Guideline, Trial, Doctor Brief, and Calm paths.
 - Timeline tab with local-only user notes.
 - Brief tab that turns Timeline notes into a copyable clinician-facing draft.
@@ -218,9 +219,9 @@ Not implemented yet:
 
 ## Next build tasks
 
-1. Refactor Telegram wire prompts into a shared backend router.
-2. Make `/ask` accept a `wire` field so mobile buttons can call the same logic as Telegram commands.
-3. Add `/brief` endpoint for server-generated doctor briefs.
-4. Add `/timeline/schema` endpoint and keep medical data local until account/privacy design is complete.
+1. Move more Telegram-specific prompt and retrieval behavior into `core/product.py`.
+2. Expand `/ask` retrieval over curated knowledge files.
+3. Connect mobile Timeline to `/brief` while keeping data local-first.
+4. Add app preview QA on iOS Simulator, Android emulator, and web.
 5. Add EAS project configuration and real Apple/Google/Huawei store metadata.
 6. Add privacy and account design before any durable health storage.

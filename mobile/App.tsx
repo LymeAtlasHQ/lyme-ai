@@ -21,7 +21,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import { askLymeWire, getHealth } from "./src/api";
+import type { ChatMessage } from "./src/api";
 import { API_BASE_URL, WIRE_ACTIONS } from "./src/config";
+import type { WireAction, WireId } from "./src/config";
 import { buildBriefFromTimeline, loadTimeline, saveTimeline, TimelineDraft } from "./src/storage";
 import { colors, spacing } from "./src/theme";
 
@@ -59,6 +61,13 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
+function toApiHistory(messages: Message[]): ChatMessage[] {
+  return messages.slice(-10).map((message) => ({
+    role: message.role,
+    content: message.text,
+  }));
+}
+
 function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>(starterMessages);
   const [input, setInput] = useState("");
@@ -69,7 +78,7 @@ function ChatScreen() {
     getHealth().then(setApiOnline);
   }, []);
 
-  async function send(text: string = input) {
+  async function send(text: string = input, wire: WireId = "ask") {
     const question = text.trim();
     if (!question || loading) {
       return;
@@ -80,7 +89,7 @@ function ChatScreen() {
     setLoading(true);
 
     try {
-      const answer = await askLymeWire(question);
+      const answer = await askLymeWire(question, wire, toApiHistory(messages));
       setMessages((current) => [...current, { role: "assistant", text: answer }]);
     } catch {
       setMessages((current) => [
@@ -120,9 +129,13 @@ function ChatScreen() {
           {loading ? <ActivityIndicator color={colors.graphite} style={styles.loader} /> : null}
         </ScrollView>
         <View style={styles.quickRow}>
-          {["Care route", "Research PTLDS", "Calm mode"].map((label) => (
-            <Pressable key={label} style={styles.quickButton} onPress={() => send(label)}>
-              <Text style={styles.quickText}>{label}</Text>
+          {[
+            { label: "Care route", wire: "care" as WireId },
+            { label: "Research PTLDS", wire: "research" as WireId },
+            { label: "Calm mode", wire: "calm" as WireId },
+          ].map((action) => (
+            <Pressable key={action.label} style={styles.quickButton} onPress={() => send(action.label, action.wire)}>
+              <Text style={styles.quickText}>{action.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -145,17 +158,40 @@ function ChatScreen() {
 }
 
 function WiresScreen() {
+  const [wireAnswer, setWireAnswer] = useState("");
+  const [loadingWire, setLoadingWire] = useState<string | null>(null);
+
+  async function runWire(wire: WireAction) {
+    setLoadingWire(wire.id);
+    setWireAnswer("");
+    try {
+      const answer = await askLymeWire(wire.prompt, wire.id);
+      setWireAnswer(answer);
+    } catch {
+      setWireAnswer("LymeWire API is unreachable from this device right now.");
+    } finally {
+      setLoadingWire(null);
+    }
+  }
+
   return (
     <ScreenShell>
       <Header title="Wires" subtitle="Focused paths for care, research and clinician prep" />
       <ScrollView contentContainerStyle={styles.content}>
         {WIRE_ACTIONS.map((wire) => (
-          <View key={wire.id} style={styles.card}>
+          <Pressable key={wire.id} style={styles.card} onPress={() => runWire(wire)}>
             <Text style={styles.cardTitle}>{wire.title}</Text>
             <Text style={styles.cardBody}>{wire.subtitle}</Text>
             <Text style={styles.promptText}>{wire.prompt}</Text>
-          </View>
+            {loadingWire === wire.id ? <ActivityIndicator color={colors.graphite} style={styles.inlineLoader} /> : null}
+          </Pressable>
         ))}
+        {wireAnswer ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Wire answer</Text>
+            <Text style={styles.cardBody}>{wireAnswer}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </ScreenShell>
   );
@@ -382,6 +418,10 @@ const styles = StyleSheet.create({
   loader: {
     alignSelf: "flex-start",
     marginVertical: spacing.sm,
+  },
+  inlineLoader: {
+    alignSelf: "flex-start",
+    marginTop: spacing.sm,
   },
   quickRow: {
     flexDirection: "row",

@@ -63,6 +63,8 @@ Telegram command: `/calm`
 ```mermaid
 flowchart TD
     A["Telegram user"] --> B["LymeWire router"]
+    W["Web app"] --> B
+    M["iOS / Android app"] --> B
     B --> C["Care Wire"]
     B --> D["Research Wire"]
     B --> E["Guideline Wire"]
@@ -73,11 +75,27 @@ flowchart TD
     F --> G
 ```
 
+## Product API
+
+The product API is the shared surface that turns LymeWire from a Telegram-only bot into a multi-interface product.
+
+- `main.py` exposes FastAPI endpoints.
+- `core/product.py` owns the first shared wire router.
+- Mobile and web call `POST /ask` with a `wire` value instead of relying on Telegram slash commands.
+- Timeline data remains local-first until account, consent, encryption, deletion/export, and legal review are designed.
+
+Near-term split:
+
+- Telegram remains the live MVP surface.
+- Mobile is the first cross-platform app shell.
+- The Product API becomes the shared brain for Telegram, web, iOS, and Android.
+
 ## Roadmap
 
 1. Telegram MVP with practical wire commands.
 2. Evidence retrieval and source cards.
-3. Knowledge base and `/ask` retrieval over curated Lyme sources.
-4. Live care-finder web search for doctors, centers, appointment pages, and international second-opinion routes.
-5. User-owned symptom timeline and doctor brief export.
-6. Web app where all wires are visible as the LymeWire network.
+3. Product API with wire-aware `/ask`, `/brief`, and local-first timeline schema.
+4. Knowledge base and `/ask` retrieval over curated Lyme sources.
+5. Live care-finder web search for doctors, centers, appointment pages, and international second-opinion routes.
+6. User-owned symptom timeline and doctor brief export.
+7. Web app where all wires are visible as the LymeWire network.

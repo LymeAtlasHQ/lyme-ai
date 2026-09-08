@@ -11,7 +11,16 @@ export const API_BASE_URL =
   extra.apiBaseUrl ??
   "https://lyme-ai-production.up.railway.app";
 
-export const WIRE_ACTIONS = [
+export type WireId = "ask" | "care" | "research" | "treatment" | "guideline" | "compare" | "trial" | "doctorbrief" | "calm";
+
+export type WireAction = {
+  id: WireId;
+  title: string;
+  subtitle: string;
+  prompt: string;
+};
+
+export const WIRE_ACTIONS: WireAction[] = [
   {
     id: "care",
     title: "Care Wire",
@@ -43,7 +52,7 @@ export const WIRE_ACTIONS = [
     prompt: "Find active Lyme or PTLDS trials and explain what they test.",
   },
   {
-    id: "brief",
+    id: "doctorbrief",
     title: "Doctor Brief Wire",
     subtitle: "Clinician-ready visit summary",
     prompt: "Prepare a concise doctor brief from this symptom timeline.",
