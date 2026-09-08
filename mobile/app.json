@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "LymeWire",
+    "slug": "lymewire",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "lymewire",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07110d"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.lymewire.mobile",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "LymeWire does not read Apple Health data in this MVP.",
+        "NSHealthUpdateUsageDescription": "LymeWire does not write Apple Health data in this MVP."
+      }
+    },
+    "android": {
+      "package": "app.lymewire.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/splash.png",
+        "backgroundColor": "#07110d"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiBaseUrl": "https://lyme-ai-production.up.railway.app"
+    }
+  }
+}

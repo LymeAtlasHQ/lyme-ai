@@ -29,8 +29,35 @@ Telegram bot profile name, short description, long description, and command menu
 - `ARCHITECTURE.md` explains the LymeWire wire model.
 - `ROADMAP.md` tracks phases from Telegram MVP to web, iOS, and Android.
 - `MOBILE_APP_SPEC.md` defines the future app structure and safety rules.
+- `mobile/` contains the first Expo app shell for iOS, Android/APK, and web.
 - `TEST_PLAN.md` defines the Telegram MVP acceptance tests.
 - `brand/BRANDING.md` contains public name, descriptions, voice, slogan, and logo direction.
+
+## Mobile app
+
+The first mobile app shell lives in `mobile/`.
+
+It is an Expo app with shared iOS, Android/APK, and web targets. The MVP connects to the existing Railway API, exposes Chat, Wires, Timeline, Doctor Brief, and Sources tabs, and keeps entered timeline notes local on-device until a real privacy/account design exists.
+
+```bash
+cd mobile
+npm install
+npm run start
+```
+
+APK preview builds are configured through EAS:
+
+```bash
+cd mobile
+npx eas build -p android --profile preview
+```
+
+iOS/TestFlight builds use:
+
+```bash
+cd mobile
+npx eas build -p ios --profile production
+```
 
 ## Telegram bot
 

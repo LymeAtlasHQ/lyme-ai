@@ -190,12 +190,37 @@ LymeWire V1 is ready when:
 - App icon candidate is selected and exported.
 - At least three real test conversations are run and reviewed.
 
+## Current mobile implementation
+
+The first app shell now lives in `mobile/`.
+
+It uses Expo so the same codebase can produce:
+
+- iOS app builds,
+- Android APK preview builds,
+- web preview builds.
+
+Implemented in the first pass:
+
+- Chat tab connected to the Railway `/ask` endpoint.
+- Wires tab with Care, Research, Treatment, Guideline, Trial, Doctor Brief, and Calm paths.
+- Timeline tab with local-only user notes.
+- Brief tab that turns Timeline notes into a copyable clinician-facing draft.
+- Sources tab with backend and evidence-boundary visibility.
+
+Not implemented yet:
+
+- shared Telegram/mobile prompt router,
+- durable account-based memory,
+- Apple Health / Huawei Health / Google Fit / hospital import,
+- store submission metadata,
+- privacy policy and legal review.
+
 ## Next build tasks
 
-1. Create a shared backend router for wires so Telegram and future app share logic.
-2. Add `/ask` retrieval over curated knowledge files.
-3. Add timeline intake schema.
-4. Add doctor brief export endpoint.
-5. Create web app prototype.
-6. Convert web prototype into mobile-ready React Native / Expo app.
-7. Add privacy and account design before any durable health storage.
+1. Refactor Telegram wire prompts into a shared backend router.
+2. Make `/ask` accept a `wire` field so mobile buttons can call the same logic as Telegram commands.
+3. Add `/brief` endpoint for server-generated doctor briefs.
+4. Add `/timeline/schema` endpoint and keep medical data local until account/privacy design is complete.
+5. Add EAS project configuration and real Apple/Google/Huawei store metadata.
+6. Add privacy and account design before any durable health storage.
