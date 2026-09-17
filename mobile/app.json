@@ -18,9 +18,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.lymewire.mobile",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSHealthShareUsageDescription": "LymeWire does not read Apple Health data in this MVP.",
-        "NSHealthUpdateUsageDescription": "LymeWire does not write Apple Health data in this MVP."
+        "CFBundleDevelopmentRegion": "tr",
+        "CFBundleAllowMixedLocalizations": true
       }
     },
     "android": {
