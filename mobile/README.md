@@ -16,6 +16,7 @@ https://lyme-ai-production.up.railway.app
 - Local-only Timeline notes.
 - Doctor Brief draft generation from local Timeline notes.
 - Sources screen with safety and evidence boundaries.
+- Turkish and English app language selection with the user's choice stored locally.
 
 ## What is intentionally not active yet
 
@@ -23,6 +24,7 @@ https://lyme-ai-production.up.railway.app
 - No Apple Health, Huawei Health, Google Fit, or hospital system import.
 - No App Store or Google Play submission until privacy/legal copy and account design are ready.
 - No doctor ranking by unverifiable success rates.
+- No DeepL API integration yet; Turkish/English app copy is handled inside the app and model prompts.
 
 ## Local run
 
@@ -47,7 +49,7 @@ cd mobile
 npx eas build -p android --profile preview
 ```
 
-## iOS
+## iOS / TestFlight
 
 The production iOS bundle identifier is:
 
@@ -55,12 +57,13 @@ The production iOS bundle identifier is:
 app.lymewire.mobile
 ```
 
-For TestFlight:
+The repo has iOS-ready EAS profiles:
 
 ```bash
 cd mobile
+npx eas build -p ios --profile ios-preview
 npx eas build -p ios --profile production
 npx eas submit -p ios --profile production
 ```
 
-Apple Developer credentials and App Store Connect setup are required before submit.
+Apple Developer and App Store Connect setup are required before signed TestFlight submission. See `docs/mobile-ios-testflight.md` for the exact values to prepare.
