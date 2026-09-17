@@ -7,7 +7,7 @@ from typing import Literal
 
 import httpx
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 BRAND_NAME = os.getenv("APP_NAME", "LymeWire")
 MODEL = os.getenv("MODEL", "gpt-5.5")
@@ -32,6 +32,13 @@ def openai_client() -> OpenAI:
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(max_length=2000)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def bound_history_content(cls, value):
+        # Existing APKs echo full model replies, which can exceed the context budget.
+        # Bound historical context without rejecting the next user question.
+        return value[:2000] if isinstance(value, str) else value
 
 
 class AskRequest(BaseModel):
@@ -367,7 +374,8 @@ async def answer_product(request: AskRequest) -> AskResponse:
         """
     ).strip()
 
-    response = openai_client().responses.create(
+    response = await asyncio.to_thread(
+        openai_client().responses.create,
         model=MODEL,
         input=[
             {"role": "system", "content": system_prompt},
