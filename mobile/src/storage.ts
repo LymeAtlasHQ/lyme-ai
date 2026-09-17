@@ -8,6 +8,36 @@ export type TimelineDraft = {
 };
 
 const TIMELINE_KEY = "lymewire.timeline.v1";
+const SETTINGS_KEY = "lymewire.settings.v1";
+
+export type AppLanguage = "tr" | "en";
+
+export type AppSettings = {
+  language: AppLanguage;
+  onboarded: boolean;
+  email?: string;
+};
+
+export async function loadSettings(): Promise<AppSettings> {
+  const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+  if (!raw) {
+    return {
+      language: "tr",
+      onboarded: false,
+    };
+  }
+
+  const stored = JSON.parse(raw) as Partial<AppSettings>;
+  return {
+    language: stored.language ?? "tr",
+    onboarded: stored.onboarded ?? false,
+    email: stored.email,
+  };
+}
+
+export async function saveSettings(settings: AppSettings): Promise<void> {
+  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
 export async function loadTimeline(): Promise<TimelineDraft> {
   const raw = await AsyncStorage.getItem(TIMELINE_KEY);
