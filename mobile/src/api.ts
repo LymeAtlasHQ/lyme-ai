@@ -17,13 +17,14 @@ export async function askLymeWire(
   question: string,
   wire: WireId = "ask",
   history: ChatMessage[] = [],
+  language: "tr" | "en" = "tr",
 ): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ question, wire, history }),
+    body: JSON.stringify({ question, wire, history, profile: { language } }),
   });
 
   if (!response.ok) {
