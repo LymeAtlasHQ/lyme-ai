@@ -37,7 +37,10 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "https://lyme-ai-production.up.railway.app"
+      "apiBaseUrl": "https://lyme-ai-production.up.railway.app",
+      "eas": {
+        "projectId": "f54986bb-f445-40c2-87bd-778174bec49b"
+      }
     }
   }
 }
